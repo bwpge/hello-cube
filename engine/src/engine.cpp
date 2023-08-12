@@ -1,0 +1,279 @@
+
+// vulkan needs to be included before glfw
+#include "engine.hpp"
+#include "logger.hpp"
+#include <GLFW/glfw3.h>
+
+namespace hc {
+
+auto get_extensions() -> std::vector<const char *> {
+    u32 count{};
+    auto *glfw_ext = glfwGetRequiredInstanceExtensions(&count);
+    auto result = std::vector(glfw_ext, glfw_ext + count);
+
+    result.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+    return result;
+}
+
+void log_list(std::string_view caption, const std::vector<const char *> &list) {
+    std::ostringstream msg{};
+    msg << caption << "\n";
+
+    if (list.empty()) {
+        msg << "    - <none>";
+    } else {
+        i32 len = static_cast<i32>(list.size());
+        for (i32 i = 0; i < len; i++) {
+            msg << "    - " << list[i];
+            if (i + 1 != len) {
+                msg << "\n";
+            }
+        }
+    }
+
+    spdlog::debug(msg.str());
+}
+
+void log_devices(const std::vector<vk::PhysicalDevice> &list) {
+    std::ostringstream msg{};
+    msg << "Physical devices found:"
+        << "\n";
+
+    if (list.empty()) {
+        msg << "    - <none>";
+    } else {
+        i32 len = static_cast<i32>(list.size());
+        for (i32 i = 0; i < len; i++) {
+            const auto p = list[i].getProperties();
+            msg << "    - " << p.deviceName << " (id=" << p.deviceID << ")";
+            if (i + 1 != len) {
+                msg << "\n";
+            }
+        }
+    }
+
+    spdlog::debug(msg.str());
+}
+
+void Engine::init() {
+    if (_is_init) {
+        spdlog::error("Attempted to initialize after already calling init()");
+        return;
+    }
+
+    hc::configure_logger();
+
+    spdlog::trace("Initializing GLFW");
+    glfwInit();
+
+    spdlog::trace(
+        "Creating window: title='{}', width={}, height={}",
+        _title,
+        _width,
+        _height
+    );
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    _window =
+        glfwCreateWindow(_width, _height, "Hello Triangle", nullptr, nullptr);
+
+    if (!_window) {
+        spdlog::critical("Failed to create window, exiting");
+        std::exit(-1);
+    }
+
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
+    glfwSetKeyCallback(
+        _window,
+        [](GLFWwindow *window, i32 key, i32, i32 action, i32) {
+            if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            }
+        }
+    );
+    // NOLINTEND(bugprone-easily-swappable-parameters)
+
+    init_vulkan();
+    init_swapchain();
+    init_commands();
+
+    _is_init = true;
+}
+
+void Engine::run() {
+    spdlog::info("Entering main application loop");
+    while (!glfwWindowShouldClose(_window)) {
+        glfwPollEvents();
+        render();
+    }
+}
+
+void Engine::render() {
+    // TODO(bwpge)
+}
+
+void Engine::cleanup() {
+    spdlog::info("Shutdown requested, cleaning up");
+
+    // vulkan resource cleanup is handled by vulkan-hpp,
+    // destructors are called in reverse order of declaration
+
+    if (_window) {
+        glfwDestroyWindow(_window);
+    }
+    glfwTerminate();
+}
+
+void Engine::init_vulkan() {
+    spdlog::trace("Initializing Vulkan");
+
+    create_instance();
+    create_surface();
+    create_device();
+}
+
+void Engine::create_instance() {
+    spdlog::trace("Creating Vulkan instance");
+
+    vk::ApplicationInfo ai{
+        "hello-cube",
+        VK_MAKE_VERSION(0, 1, 0),
+        "hc",
+        VK_MAKE_VERSION(0, 1, 0),
+        VK_API_VERSION_1_3,
+    };
+    vk::InstanceCreateInfo ici{{}, &ai};
+
+    auto dmci = vk::DebugUtilsMessengerCreateInfoEXT{
+        {},
+        vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
+        hc::debug_callback,
+    };
+
+    // create vulkan instance
+    auto extensions = get_extensions();
+
+    log_list("Requested instance extensions:", extensions);
+
+    auto layers = std::vector<const char *>{"VK_LAYER_KHRONOS_validation"};
+    log_list("Requested validation layers:", layers);
+
+    ici.setPEnabledExtensionNames(extensions)
+        .setPEnabledLayerNames(layers)
+        .setPNext(&dmci);
+
+    _instance = vk::createInstanceUnique(ici);
+    _messenger = _instance->createDebugUtilsMessengerEXTUnique(dmci);
+}
+
+void Engine::create_surface() {
+    spdlog::trace("Initializing window surface");
+
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(_instance.get(), _window, nullptr, &surface) !=
+        VK_SUCCESS) {
+        spdlog::critical("Failed to create window surface");
+        abort();
+    }
+    if (surface == VK_NULL_HANDLE) {
+        spdlog::critical("Failed to create window surface");
+        abort();
+    } else {
+        // https://github.com/KhronosGroup/Vulkan-Hpp/blob/e2f5348e28ba22dd9b87028f2d9bb7d556aa7b6e/samples/utils/utils.cpp#L790-L798
+        auto deleter =
+            vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(
+                _instance.get()
+            );
+        _surface = vk::UniqueSurfaceKHR{surface, deleter};
+    }
+}
+
+void Engine::create_device() {
+    spdlog::trace("Selecting physical device");
+
+    const auto devices = _instance->enumeratePhysicalDevices();
+    log_devices(devices);
+
+    i32 selected = -1;
+    for (i32 i = 0; i < static_cast<i32>(devices.size()); i++) {
+        const auto p = devices[i].getProperties();
+        if (p.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
+            selected = i;
+            spdlog::debug(
+                "Selected device '{}'", static_cast<const char *>(p.deviceName)
+            );
+            _gpu = devices[selected];
+            break;
+        }
+    }
+    if (selected < 0) {
+        spdlog::critical("Failed to locate a suitable device");
+        abort();
+    }
+
+    _gpu = devices[selected];
+
+    auto queues = _gpu.getQueueFamilyProperties();
+    auto idx_graphics = std::optional<u32>{};
+    auto idx_present = std::optional<u32>();
+    for (u32 i = 0; i < static_cast<u32>(queues.size()); i++) {
+        const auto props = queues[i];
+        const auto has_present = _gpu.getSurfaceSupportKHR(i, _surface.get());
+        if (props.queueFlags & vk::QueueFlagBits::eGraphics) {
+            idx_graphics = i;
+        }
+        if (has_present) {
+            idx_present = i;
+        }
+        if (idx_graphics.has_value() && idx_present.has_value()) {
+            break;
+        }
+    }
+    if (!idx_graphics.has_value() || !idx_present.has_value()) {
+        spdlog::critical("Failed to locate required queue indices");
+        abort();
+    }
+    spdlog::debug(
+        "Located queue indices:\n    - Graphics: {}\n    - Present: {}",
+        idx_graphics.value(),
+        idx_present.value()
+    );
+
+    f32 priority = 1.0F;
+    auto unique_idx = std::set<u32>{idx_graphics.value(), idx_present.value()};
+    auto infos = std::vector<vk::DeviceQueueCreateInfo>{};
+
+    for (u32 idx : unique_idx) {
+        vk::DeviceQueueCreateInfo dqci{{}, idx, 1, &priority, nullptr};
+        infos.push_back(dqci);
+    }
+
+    vk::DeviceCreateInfo dci{};
+    auto extensions = std::vector{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    dci.setQueueCreateInfos(infos).setPEnabledExtensionNames(extensions);
+
+    _device = _gpu.createDeviceUnique(dci);
+
+    spdlog::debug("Created logical device");
+}
+
+void Engine::init_swapchain() {  // NOLINT
+    spdlog::trace("Initializing swapchain");
+
+    // TODO(bwpge)
+}
+
+void Engine::init_commands() {  // NOLINT
+    spdlog::trace("Initializing command buffers");
+
+    // TODO(bwpge)
+}
+
+}  // namespace hc
