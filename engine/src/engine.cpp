@@ -240,10 +240,12 @@ void Engine::create_device() {
         spdlog::critical("Failed to locate required queue indices");
         abort();
     }
+    _queue_indices.graphics = idx_graphics.value();
+    _queue_indices.present = idx_present.value();
     spdlog::debug(
         "Located queue indices:\n    - Graphics: {}\n    - Present: {}",
-        idx_graphics.value(),
-        idx_present.value()
+        _queue_indices.graphics,
+        _queue_indices.present
     );
 
     f32 priority = 1.0F;
@@ -260,14 +262,111 @@ void Engine::create_device() {
     dci.setQueueCreateInfos(infos).setPEnabledExtensionNames(extensions);
 
     _device = _gpu.createDeviceUnique(dci);
-
-    spdlog::debug("Created logical device");
 }
 
-void Engine::init_swapchain() {  // NOLINT
+void Engine::init_swapchain() {
     spdlog::trace("Initializing swapchain");
 
-    // TODO(bwpge)
+    const auto capabilities = _gpu.getSurfaceCapabilitiesKHR(_surface.get());
+    const auto formats = _gpu.getSurfaceFormatsKHR(_surface.get());
+    const auto modes = _gpu.getSurfacePresentModesKHR(_surface.get());
+
+    vk::Extent2D extent{};
+    if (capabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
+        extent = capabilities.currentExtent;
+    } else {
+        i32 width{};
+        i32 height{};
+        glfwGetFramebufferSize(_window, &width, &height);
+        extent =
+            vk::Extent2D{static_cast<u32>(width), static_cast<u32>(height)};
+    }
+    extent.width = std::clamp(
+        extent.width,
+        capabilities.minImageExtent.width,
+        capabilities.maxImageExtent.width
+    );
+    extent.height = std::clamp(
+        extent.height,
+        capabilities.minImageExtent.height,
+        capabilities.maxImageExtent.height
+    );
+
+    auto format = std::optional<vk::Format>{};
+    auto color = std::optional<vk::ColorSpaceKHR>{};
+    for (usize i = 0; i < formats.size(); i++) {}
+    for (const auto &f : formats) {
+        if (f.format == vk::Format::eB8G8R8A8Unorm) {
+            format = f.format;
+        }
+        if (f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            color = f.colorSpace;
+        }
+        if (format.has_value() && color.has_value()) {
+            break;
+        }
+    }
+    if (!format.has_value()) {
+        spdlog::critical("GPU does not have a suitable image format");
+        abort();
+    } else if (!color.has_value()) {
+        spdlog::critical("GPU does not have a suitable image color space");
+        abort();
+    }
+    _swapchain_format = format.value();
+
+    auto mode = std::optional<vk::PresentModeKHR>{};
+    for (const auto &m : modes) {
+        if (m == vk::PresentModeKHR::eFifo) {
+            mode = m;
+        }
+    }
+    if (!mode.has_value()) {
+        spdlog::critical("GPU does not have a suitable present mode");
+        abort();
+    }
+
+    u32 img_count = capabilities.minImageCount + 1;
+    if (capabilities.maxImageCount > 0 &&
+        img_count > capabilities.maxImageCount) {
+        img_count = capabilities.maxImageCount;
+    }
+
+    vk::SwapchainCreateInfoKHR scci{
+        {},
+        _surface.get(),
+        img_count,
+        _swapchain_format,
+        color.value(),
+        extent,
+        1,
+        vk::ImageUsageFlagBits::eColorAttachment,
+    };
+    if (_queue_indices.graphics != _queue_indices.present) {
+        auto indices =
+            std::vector{_queue_indices.graphics, _queue_indices.present};
+        scci.setImageSharingMode(vk::SharingMode::eConcurrent)
+            .setQueueFamilyIndices(indices);
+    } else {
+        scci.setImageSharingMode(vk::SharingMode::eExclusive);
+    }
+    scci.setPreTransform(capabilities.currentTransform)
+        .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
+        .setPresentMode(mode.value())
+        .setClipped(true);
+
+    _swapchain = _device->createSwapchainKHRUnique(scci);
+    _swapchain_images = _device->getSwapchainImagesKHR(_swapchain.get());
+
+    _swapchain_image_views.resize(_swapchain_images.size());
+    for (usize i = 0; i < _swapchain_images.size(); i++) {
+        vk::ImageViewCreateInfo ivci{};
+        ivci.setImage(_swapchain_images[i])
+            .setViewType(vk::ImageViewType::e2D)
+            .setFormat(format.value())
+            .setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+        _swapchain_image_views.push_back(_device->createImageViewUnique(ivci));
+    }
 }
 
 void Engine::init_commands() {  // NOLINT
