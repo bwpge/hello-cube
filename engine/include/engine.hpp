@@ -35,6 +35,8 @@ private:
     void init_vulkan();
     void init_swapchain();
     void init_commands();
+    void init_renderpass();
+    void init_framebuffers();
     void create_instance();
     void create_surface();
     void create_device();
@@ -47,7 +49,7 @@ private:
     GLFWwindow* _window{nullptr};
 
     vk::UniqueInstance _instance{};
-    vk::UniqueDebugUtilsMessengerEXT _messenger;
+    vk::UniqueDebugUtilsMessengerEXT _messenger{};
     vk::PhysicalDevice _gpu{};
     vk::UniqueDevice _device{};
     vk::UniqueSurfaceKHR _surface{};
@@ -60,7 +62,11 @@ private:
     vk::Format _swapchain_format{};
     vk::UniqueSwapchainKHR _swapchain{};
     std::vector<vk::Image> _swapchain_images{};
-    std::vector<vk::UniqueImageView> _swapchain_image_views;
+    std::vector<vk::UniqueImageView> _swapchain_image_views{};
+    vk::UniqueCommandPool _cmd_pool{};
+    vk::UniqueCommandBuffer _cmd_buffer{};
+    vk::UniqueRenderPass _render_pass{};
+    std::vector<vk::UniqueFramebuffer> _framebuffers{};
 };
 
 }  // namespace hc

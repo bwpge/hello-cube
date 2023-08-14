@@ -1,4 +1,3 @@
-
 // vulkan needs to be included before glfw
 #include "engine.hpp"
 #include "logger.hpp"
@@ -6,9 +5,9 @@
 
 namespace hc {
 
-auto get_extensions() -> std::vector<const char *> {
+auto get_extensions() -> std::vector<const char*> {
     u32 count{};
-    auto *glfw_ext = glfwGetRequiredInstanceExtensions(&count);
+    auto* glfw_ext = glfwGetRequiredInstanceExtensions(&count);
     auto result = std::vector(glfw_ext, glfw_ext + count);
 
     result.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -16,7 +15,7 @@ auto get_extensions() -> std::vector<const char *> {
     return result;
 }
 
-void log_list(std::string_view caption, const std::vector<const char *> &list) {
+void log_list(std::string_view caption, const std::vector<const char*>& list) {
     std::ostringstream msg{};
     msg << caption << "\n";
 
@@ -35,7 +34,7 @@ void log_list(std::string_view caption, const std::vector<const char *> &list) {
     spdlog::debug(msg.str());
 }
 
-void log_devices(const std::vector<vk::PhysicalDevice> &list) {
+void log_devices(const std::vector<vk::PhysicalDevice>& list) {
     std::ostringstream msg{};
     msg << "Physical devices found:"
         << "\n";
@@ -85,7 +84,7 @@ void Engine::init() {
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     glfwSetKeyCallback(
         _window,
-        [](GLFWwindow *window, i32 key, i32, i32 action, i32) {
+        [](GLFWwindow* window, i32 key, i32, i32 action, i32) {
             if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             }
@@ -94,8 +93,6 @@ void Engine::init() {
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     init_vulkan();
-    init_swapchain();
-    init_commands();
 
     _is_init = true;
 }
@@ -130,6 +127,10 @@ void Engine::init_vulkan() {
     create_instance();
     create_surface();
     create_device();
+    init_swapchain();
+    init_commands();
+    init_renderpass();
+    init_framebuffers();
 }
 
 void Engine::create_instance() {
@@ -162,7 +163,8 @@ void Engine::create_instance() {
 
     log_list("Requested instance extensions:", extensions);
 
-    auto layers = std::vector<const char *>{"VK_LAYER_KHRONOS_validation"};
+    auto layers = std::vector<const char*>{
+        "VK_LAYER_KHRONOS_validation", "VK_LAYER_KHRONOS_synchronization2"};
     log_list("Requested validation layers:", layers);
 
     ici.setPEnabledExtensionNames(extensions)
@@ -207,7 +209,7 @@ void Engine::create_device() {
         if (p.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
             selected = i;
             spdlog::debug(
-                "Selected device '{}'", static_cast<const char *>(p.deviceName)
+                "Selected device '{}'", static_cast<const char*>(p.deviceName)
             );
             _gpu = devices[selected];
             break;
@@ -257,9 +259,17 @@ void Engine::create_device() {
         infos.push_back(dqci);
     }
 
+    // https://stackoverflow.com/questions/73746051/vulkan-how-to-enable-synchronization-2-feature
+    // need to enable synchronization2 feature to use
+    // VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL
+    vk::PhysicalDeviceSynchronization2Features pdsf{};
+    pdsf.setSynchronization2(VK_TRUE);
+
     vk::DeviceCreateInfo dci{};
     auto extensions = std::vector{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    dci.setQueueCreateInfos(infos).setPEnabledExtensionNames(extensions);
+    dci.setQueueCreateInfos(infos)
+        .setPEnabledExtensionNames(extensions)
+        .setPNext(&pdsf);
 
     _device = _gpu.createDeviceUnique(dci);
 }
@@ -295,7 +305,7 @@ void Engine::init_swapchain() {
     auto format = std::optional<vk::Format>{};
     auto color = std::optional<vk::ColorSpaceKHR>{};
     for (usize i = 0; i < formats.size(); i++) {}
-    for (const auto &f : formats) {
+    for (const auto& f : formats) {
         if (f.format == vk::Format::eB8G8R8A8Unorm) {
             format = f.format;
         }
@@ -316,7 +326,7 @@ void Engine::init_swapchain() {
     _swapchain_format = format.value();
 
     auto mode = std::optional<vk::PresentModeKHR>{};
-    for (const auto &m : modes) {
+    for (const auto& m : modes) {
         if (m == vk::PresentModeKHR::eFifo) {
             mode = m;
         }
@@ -353,24 +363,69 @@ void Engine::init_swapchain() {
     scci.setPreTransform(capabilities.currentTransform)
         .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
         .setPresentMode(mode.value())
-        .setClipped(true);
+        .setClipped(VK_TRUE);
 
     _swapchain = _device->createSwapchainKHRUnique(scci);
     _swapchain_images = _device->getSwapchainImagesKHR(_swapchain.get());
 
-    _swapchain_image_views.resize(_swapchain_images.size());
-    for (usize i = 0; i < _swapchain_images.size(); i++) {
+    _swapchain_image_views.reserve(_swapchain_images.size());
+    for (auto img : _swapchain_images) {
         vk::ImageViewCreateInfo ivci{};
-        ivci.setImage(_swapchain_images[i])
+        ivci.setImage(img)
             .setViewType(vk::ImageViewType::e2D)
-            .setFormat(format.value())
+            .setFormat(_swapchain_format)
             .setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
         _swapchain_image_views.push_back(_device->createImageViewUnique(ivci));
     }
 }
 
-void Engine::init_commands() {  // NOLINT
+void Engine::init_commands() {
     spdlog::trace("Initializing command buffers");
+
+    vk::CommandPoolCreateInfo cpci{
+        vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        _queue_indices.graphics,
+    };
+    _cmd_pool = _device->createCommandPoolUnique(cpci);
+
+    vk::CommandBufferAllocateInfo cbai{};
+    cbai.setCommandPool(_cmd_pool.get())
+        .setCommandBufferCount(1)
+        .setLevel(vk::CommandBufferLevel::ePrimary);
+    _cmd_buffer = std::move(_device->allocateCommandBuffersUnique(cbai)[0]);
+}
+
+void Engine::init_renderpass() {
+    spdlog::trace("Initializing renderpass");
+
+    vk::AttachmentDescription color_ad{
+        {},
+        _swapchain_format,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::ePresentSrcKHR,
+    };
+    vk::AttachmentReference color_ar{0, vk::ImageLayout::eAttachmentOptimal};
+    vk::SubpassDescription subpass{};
+    subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+        .setPColorAttachments(&color_ar)
+        .setColorAttachmentCount(1);
+
+    vk::RenderPassCreateInfo rpci{};
+    rpci.setPAttachments(&color_ad)
+        .setAttachmentCount(1)
+        .setPSubpasses(&subpass)
+        .setSubpassCount(1);
+
+    _render_pass = _device->createRenderPassUnique(rpci);
+}
+
+void Engine::init_framebuffers() {  // NOLINT
+    spdlog::trace("Initializing framebuffers");
 
     // TODO(bwpge)
 }
