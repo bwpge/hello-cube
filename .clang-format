@@ -22,9 +22,12 @@ AlwaysBreakTemplateDeclarations: true
 BinPackArguments: false
 BinPackParameters: false
 BreakAfterAttributes: Always
+DerivePointerAlignment: false
 InsertNewlineAtEOF: true
 InsertBraces: true
 InsertTrailingCommas: Wrapped
 PackConstructorInitializers: CurrentLine
+PointerAlignment: Left
+ReferenceAlignment: Pointer
 SeparateDefinitionBlocks: Always
 SortIncludes: Never
