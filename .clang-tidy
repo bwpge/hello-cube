@@ -1,6 +1,9 @@
 # Based on:
 # https://github.com/GoogleCloudPlatform/cpp-samples/blob/main/speech/api/.clang-tidy
 
+# See https://github.com/clangd/clangd/issues/1700 for issue with
+# `bugprone-unchecked-optional-access` check
+
 Checks: >
   -*,
   bugprone-*,
@@ -10,6 +13,7 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  -bugprone-unchecked-optional-access,
   -readability-named-parameter,
   -readability-braces-around-statements,
   -readability-magic-numbers,
