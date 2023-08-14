@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -11,9 +12,20 @@
 #include "debug_utils.hpp"
 #include "types.hpp"
 
+#define PANIC(msg)                                                      \
+    do {                                                                \
+        spdlog::critical("PANIC: {} ({}:{})", msg, __FILE__, __LINE__); \
+        throw std::runtime_error(msg);                                  \
+    } while (0)
+
 struct GLFWwindow;
 
 namespace hc {
+
+struct QueueFamily {
+    u32 graphics;
+    u32 present;
+};
 
 class Engine {
 public:
@@ -53,12 +65,7 @@ private:
     vk::PhysicalDevice _gpu{};
     vk::UniqueDevice _device{};
     vk::UniqueSurfaceKHR _surface{};
-
-    struct {
-        u32 graphics;
-        u32 present;
-    } _queue_indices{};
-
+    QueueFamily _indices{};
     vk::Format _swapchain_format{};
     vk::UniqueSwapchainKHR _swapchain{};
     std::vector<vk::Image> _swapchain_images{};

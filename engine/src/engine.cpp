@@ -15,46 +15,6 @@ auto get_extensions() -> std::vector<const char*> {
     return result;
 }
 
-void log_list(std::string_view caption, const std::vector<const char*>& list) {
-    std::ostringstream msg{};
-    msg << caption << "\n";
-
-    if (list.empty()) {
-        msg << "    - <none>";
-    } else {
-        i32 len = static_cast<i32>(list.size());
-        for (i32 i = 0; i < len; i++) {
-            msg << "    - " << list[i];
-            if (i + 1 != len) {
-                msg << "\n";
-            }
-        }
-    }
-
-    spdlog::debug(msg.str());
-}
-
-void log_devices(const std::vector<vk::PhysicalDevice>& list) {
-    std::ostringstream msg{};
-    msg << "Physical devices found:"
-        << "\n";
-
-    if (list.empty()) {
-        msg << "    - <none>";
-    } else {
-        i32 len = static_cast<i32>(list.size());
-        for (i32 i = 0; i < len; i++) {
-            const auto p = list[i].getProperties();
-            msg << "    - " << p.deviceName << " (id=" << p.deviceID << ")";
-            if (i + 1 != len) {
-                msg << "\n";
-            }
-        }
-    }
-
-    spdlog::debug(msg.str());
-}
-
 void Engine::init() {
     if (_is_init) {
         spdlog::error("Attempted to initialize after already calling init()");
@@ -77,8 +37,7 @@ void Engine::init() {
         glfwCreateWindow(_width, _height, "Hello Triangle", nullptr, nullptr);
 
     if (!_window) {
-        spdlog::critical("Failed to create window, exiting");
-        std::exit(-1);
+        PANIC("Failed to create window");
     }
 
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
@@ -158,14 +117,18 @@ void Engine::create_instance() {
         hc::debug_callback,
     };
 
-    // create vulkan instance
     auto extensions = get_extensions();
-
-    log_list("Requested instance extensions:", extensions);
-
     auto layers = std::vector<const char*>{
         "VK_LAYER_KHRONOS_validation", "VK_LAYER_KHRONOS_synchronization2"};
-    log_list("Requested validation layers:", layers);
+
+    spdlog::debug(
+        "Requested instance extensions: [{}]",
+        spdlog::fmt_lib::join(extensions, ", ")
+    );
+    spdlog::debug(
+        "Requested instance extensions: [{}]",
+        spdlog::fmt_lib::join(layers, ", ")
+    );
 
     ici.setPEnabledExtensionNames(extensions)
         .setPEnabledLayerNames(layers)
@@ -181,12 +144,10 @@ void Engine::create_surface() {
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(_instance.get(), _window, nullptr, &surface) !=
         VK_SUCCESS) {
-        spdlog::critical("Failed to create window surface");
-        abort();
+        PANIC("Failed to create window surface");
     }
     if (surface == VK_NULL_HANDLE) {
-        spdlog::critical("Failed to create window surface");
-        abort();
+        PANIC("Failed to create window surface");
     } else {
         // https://github.com/KhronosGroup/Vulkan-Hpp/blob/e2f5348e28ba22dd9b87028f2d9bb7d556aa7b6e/samples/utils/utils.cpp#L790-L798
         auto deleter =
@@ -201,11 +162,15 @@ void Engine::create_device() {
     spdlog::trace("Selecting physical device");
 
     const auto devices = _instance->enumeratePhysicalDevices();
-    log_devices(devices);
+    spdlog::debug(
+        "Found {} {}",
+        devices.size(),
+        devices.size() == 1 ? "device" : "devices"
+    );
 
     i32 selected = -1;
     for (i32 i = 0; i < static_cast<i32>(devices.size()); i++) {
-        const auto p = devices[i].getProperties();
+        auto p = devices[i].getProperties();
         if (p.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
             selected = i;
             spdlog::debug(
@@ -216,8 +181,7 @@ void Engine::create_device() {
         }
     }
     if (selected < 0) {
-        spdlog::critical("Failed to locate a suitable device");
-        abort();
+        PANIC("Failed to locate a suitable device");
     }
 
     _gpu = devices[selected];
@@ -239,19 +203,18 @@ void Engine::create_device() {
         }
     }
     if (!idx_graphics.has_value() || !idx_present.has_value()) {
-        spdlog::critical("Failed to locate required queue indices");
-        abort();
+        PANIC("Failed to locate required queue indices");
     }
-    _queue_indices.graphics = idx_graphics.value();
-    _queue_indices.present = idx_present.value();
+    _indices.graphics = idx_graphics.value();
+    _indices.present = idx_present.value();
     spdlog::debug(
         "Located queue indices:\n    - Graphics: {}\n    - Present: {}",
-        _queue_indices.graphics,
-        _queue_indices.present
+        _indices.graphics,
+        _indices.present
     );
 
     f32 priority = 1.0F;
-    auto unique_idx = std::set<u32>{idx_graphics.value(), idx_present.value()};
+    auto unique_idx = std::set<u32>{_indices.graphics, _indices.present};
     auto infos = std::vector<vk::DeviceQueueCreateInfo>{};
 
     for (u32 idx : unique_idx) {
@@ -278,8 +241,6 @@ void Engine::init_swapchain() {
     spdlog::trace("Initializing swapchain");
 
     const auto capabilities = _gpu.getSurfaceCapabilitiesKHR(_surface.get());
-    const auto formats = _gpu.getSurfaceFormatsKHR(_surface.get());
-    const auto modes = _gpu.getSurfacePresentModesKHR(_surface.get());
 
     vk::Extent2D extent{};
     if (capabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
@@ -302,39 +263,9 @@ void Engine::init_swapchain() {
         capabilities.maxImageExtent.height
     );
 
-    auto format = std::optional<vk::Format>{};
-    auto color = std::optional<vk::ColorSpaceKHR>{};
-    for (usize i = 0; i < formats.size(); i++) {}
-    for (const auto& f : formats) {
-        if (f.format == vk::Format::eB8G8R8A8Unorm) {
-            format = f.format;
-        }
-        if (f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-            color = f.colorSpace;
-        }
-        if (format.has_value() && color.has_value()) {
-            break;
-        }
-    }
-    if (!format.has_value()) {
-        spdlog::critical("GPU does not have a suitable image format");
-        abort();
-    } else if (!color.has_value()) {
-        spdlog::critical("GPU does not have a suitable image color space");
-        abort();
-    }
-    _swapchain_format = format.value();
-
-    auto mode = std::optional<vk::PresentModeKHR>{};
-    for (const auto& m : modes) {
-        if (m == vk::PresentModeKHR::eFifo) {
-            mode = m;
-        }
-    }
-    if (!mode.has_value()) {
-        spdlog::critical("GPU does not have a suitable present mode");
-        abort();
-    }
+    _swapchain_format = vk::Format::eB8G8R8A8Unorm;
+    auto color = vk::ColorSpaceKHR::eSrgbNonlinear;
+    auto mode = vk::PresentModeKHR::eFifo;
 
     u32 img_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 &&
@@ -347,14 +278,13 @@ void Engine::init_swapchain() {
         _surface.get(),
         img_count,
         _swapchain_format,
-        color.value(),
+        color,
         extent,
         1,
         vk::ImageUsageFlagBits::eColorAttachment,
     };
-    if (_queue_indices.graphics != _queue_indices.present) {
-        auto indices =
-            std::vector{_queue_indices.graphics, _queue_indices.present};
+    if (_indices.graphics != _indices.present) {
+        auto indices = std::vector{_indices.graphics, _indices.present};
         scci.setImageSharingMode(vk::SharingMode::eConcurrent)
             .setQueueFamilyIndices(indices);
     } else {
@@ -362,7 +292,7 @@ void Engine::init_swapchain() {
     }
     scci.setPreTransform(capabilities.currentTransform)
         .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
-        .setPresentMode(mode.value())
+        .setPresentMode(mode)
         .setClipped(VK_TRUE);
 
     _swapchain = _device->createSwapchainKHRUnique(scci);
@@ -384,7 +314,7 @@ void Engine::init_commands() {
 
     vk::CommandPoolCreateInfo cpci{
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-        _queue_indices.graphics,
+        _indices.graphics,
     };
     _cmd_pool = _device->createCommandPoolUnique(cpci);
 
@@ -392,7 +322,11 @@ void Engine::init_commands() {
     cbai.setCommandPool(_cmd_pool.get())
         .setCommandBufferCount(1)
         .setLevel(vk::CommandBufferLevel::ePrimary);
-    _cmd_buffer = std::move(_device->allocateCommandBuffersUnique(cbai)[0]);
+    auto buffers = _device->allocateCommandBuffersUnique(cbai);
+    if (buffers.empty()) {
+        PANIC("Failed to create command buffer");
+    }
+    _cmd_buffer = std::move(buffers[0]);
 }
 
 void Engine::init_renderpass() {

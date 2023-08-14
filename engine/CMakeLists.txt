@@ -41,6 +41,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<limits>"
         "<optional>"
         "<set>"
+        "<stdexcept>"
         "<sstream>"
         "<string>"
         "<string_view>"
