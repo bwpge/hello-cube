@@ -9,12 +9,12 @@ set(HCENGINE_HEADER_FILES
     "include/engine.hpp"
     "include/hello_cube.hpp"
     "include/types.hpp"
-    "src/logger.hpp"
 )
 
 set(HCENGINE_SRC_FILES
     "src/debug_utils.cpp"
     "src/engine.cpp"
+    "src/logger.hpp"
     "src/logger.cpp"
 )
 
@@ -32,6 +32,21 @@ if(MSVC)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+# precompiled header
+target_precompile_headers(${PROJECT_NAME}
+    PRIVATE
+        "<algorithm>"
+        "<memory>"
+        "<limits>"
+        "<optional>"
+        "<set>"
+        "<sstream>"
+        "<string>"
+        "<string_view>"
+        "<vector>"
+        "<vulkan/vulkan.hpp>"
+)
 
 # configure options
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
