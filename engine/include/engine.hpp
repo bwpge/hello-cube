@@ -67,6 +67,7 @@ private:
     vk::UniqueSurfaceKHR _surface{};
     QueueFamily _indices{};
     vk::Format _swapchain_format{};
+    vk::Extent2D _swapchain_extent{};
     vk::UniqueSwapchainKHR _swapchain{};
     std::vector<vk::Image> _swapchain_images{};
     std::vector<vk::UniqueImageView> _swapchain_image_views{};

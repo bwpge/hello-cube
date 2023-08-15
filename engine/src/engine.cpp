@@ -15,6 +15,37 @@ auto get_extensions() -> std::vector<const char*> {
     return result;
 }
 
+auto get_surface_extent(
+    vk::PhysicalDevice& device,
+    vk::SurfaceKHR& surface,
+    GLFWwindow* window
+) -> vk::Extent2D {
+    const auto capabilities = device.getSurfaceCapabilitiesKHR(surface);
+
+    vk::Extent2D extent{};
+    if (capabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
+        extent = capabilities.currentExtent;
+    } else {
+        i32 width{};
+        i32 height{};
+        glfwGetFramebufferSize(window, &width, &height);
+        extent =
+            vk::Extent2D{static_cast<u32>(width), static_cast<u32>(height)};
+    }
+    extent.width = std::clamp(
+        extent.width,
+        capabilities.minImageExtent.width,
+        capabilities.maxImageExtent.width
+    );
+    extent.height = std::clamp(
+        extent.height,
+        capabilities.minImageExtent.height,
+        capabilities.maxImageExtent.height
+    );
+
+    return extent;
+}
+
 void Engine::init() {
     if (_is_init) {
         spdlog::error("Attempted to initialize after already calling init()");
@@ -241,28 +272,7 @@ void Engine::init_swapchain() {
     spdlog::trace("Initializing swapchain");
 
     const auto capabilities = _gpu.getSurfaceCapabilitiesKHR(_surface.get());
-
-    vk::Extent2D extent{};
-    if (capabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
-        extent = capabilities.currentExtent;
-    } else {
-        i32 width{};
-        i32 height{};
-        glfwGetFramebufferSize(_window, &width, &height);
-        extent =
-            vk::Extent2D{static_cast<u32>(width), static_cast<u32>(height)};
-    }
-    extent.width = std::clamp(
-        extent.width,
-        capabilities.minImageExtent.width,
-        capabilities.maxImageExtent.width
-    );
-    extent.height = std::clamp(
-        extent.height,
-        capabilities.minImageExtent.height,
-        capabilities.maxImageExtent.height
-    );
-
+    _swapchain_extent = get_surface_extent(_gpu, _surface.get(), _window);
     _swapchain_format = vk::Format::eB8G8R8A8Unorm;
     auto color = vk::ColorSpaceKHR::eSrgbNonlinear;
     auto mode = vk::PresentModeKHR::eFifo;
@@ -279,7 +289,7 @@ void Engine::init_swapchain() {
         img_count,
         _swapchain_format,
         color,
-        extent,
+        _swapchain_extent,
         1,
         vk::ImageUsageFlagBits::eColorAttachment,
     };
@@ -358,10 +368,22 @@ void Engine::init_renderpass() {
     _render_pass = _device->createRenderPassUnique(rpci);
 }
 
-void Engine::init_framebuffers() {  // NOLINT
+void Engine::init_framebuffers() {
     spdlog::trace("Initializing framebuffers");
 
-    // TODO(bwpge)
+    _framebuffers.reserve(_swapchain_image_views.size());
+    for (const auto& iv : _swapchain_image_views) {
+        auto attachments = std::vector<vk::ImageView>{iv.get()};
+
+        vk::FramebufferCreateInfo info{};
+        info.setRenderPass(_render_pass.get())
+            .setAttachments(attachments)
+            .setWidth(_swapchain_extent.width)
+            .setHeight(_swapchain_extent.height)
+            .setLayers(1);
+
+        _framebuffers.push_back(_device->createFramebufferUnique(info));
+    }
 }
 
 }  // namespace hc
