@@ -49,6 +49,7 @@ private:
     void init_commands();
     void init_renderpass();
     void init_framebuffers();
+    void init_sync_obj();
     void create_instance();
     void create_surface();
     void create_device();
@@ -64,6 +65,7 @@ private:
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
     vk::PhysicalDevice _gpu{};
     vk::UniqueDevice _device{};
+    vk::Queue _graphics_queue{};
     vk::UniqueSurfaceKHR _surface{};
     QueueFamily _indices{};
     vk::Format _swapchain_format{};
@@ -75,6 +77,8 @@ private:
     vk::UniqueCommandBuffer _cmd_buffer{};
     vk::UniqueRenderPass _render_pass{};
     std::vector<vk::UniqueFramebuffer> _framebuffers{};
+    vk::UniqueSemaphore _present_semaphore{}, _render_semaphore{};
+    vk::UniqueFence _render_fence{};
 };
 
 }  // namespace hc

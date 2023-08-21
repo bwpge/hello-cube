@@ -93,10 +93,54 @@ void Engine::run() {
         glfwPollEvents();
         render();
     }
+
+    _device->waitIdle();
 }
 
 void Engine::render() {
-    // TODO(bwpge)
+    if (_device->waitForFences(_render_fence.get(), VK_TRUE, 1000000000) !=
+        vk::Result::eSuccess) {
+        PANIC("Failed to wait for render fence");
+    }
+    _device->resetFences(_render_fence.get());
+
+    auto res = _device->acquireNextImageKHR(
+        _swapchain.get(), 1000000000, _present_semaphore.get(), nullptr
+    );
+    if (res.result != vk::Result::eSuccess) {
+        PANIC("Failed to acquire next swapchain image");
+    }
+    u32 idx = res.value;
+
+    _cmd_buffer->reset();
+    _cmd_buffer->begin(vk::CommandBufferBeginInfo{
+        vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    vk::ClearValue clear{vk::ClearColorValue{0.0F, 0.0F, 0.2F, 1.0F}};
+    vk::RenderPassBeginInfo rpinfo{
+        _render_pass.get(),
+        _framebuffers[idx].get(),
+        vk::Rect2D{{0, 0}, _swapchain_extent},
+        clear,
+    };
+    _cmd_buffer->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
+    _cmd_buffer->endRenderPass();
+    _cmd_buffer->end();
+
+    vk::PipelineStageFlags flags =
+        vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    vk::SubmitInfo submit{
+        _present_semaphore.get(),
+        flags,
+        _cmd_buffer.get(),
+        _render_semaphore.get()};
+    _graphics_queue.submit(submit, _render_fence.get());
+
+    vk::PresentInfoKHR present{_render_semaphore.get(), _swapchain.get(), idx};
+    if (_graphics_queue.presentKHR(present) != vk::Result::eSuccess) {
+        PANIC("Failed to present swapchain frame");
+    }
+
+    _frame_number++;
 }
 
 void Engine::cleanup() {
@@ -121,6 +165,7 @@ void Engine::init_vulkan() {
     init_commands();
     init_renderpass();
     init_framebuffers();
+    init_sync_obj();
 }
 
 void Engine::create_instance() {
@@ -266,6 +311,7 @@ void Engine::create_device() {
         .setPNext(&pdsf);
 
     _device = _gpu.createDeviceUnique(dci);
+    _graphics_queue = _device->getQueue(_indices.graphics, 0);
 }
 
 void Engine::init_swapchain() {
@@ -384,6 +430,17 @@ void Engine::init_framebuffers() {
 
         _framebuffers.push_back(_device->createFramebufferUnique(info));
     }
+}
+
+void Engine::init_sync_obj() {
+    spdlog::trace("Creating synchronization structures");
+
+    _render_fence = _device->createFenceUnique(vk::FenceCreateInfo{
+        vk::FenceCreateFlagBits::eSignaled});
+
+    auto info = vk::SemaphoreCreateInfo{};
+    _present_semaphore = _device->createSemaphoreUnique(info);
+    _render_semaphore = _device->createSemaphoreUnique(info);
 }
 
 }  // namespace hc
