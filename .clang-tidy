@@ -17,6 +17,7 @@ Checks: >
   -readability-named-parameter,
   -readability-braces-around-statements,
   -readability-magic-numbers,
+  -readability-uppercase-literal-suffix,
   -readability-identifier-length,
   -modernize-use-trailing-return-type,
 
