@@ -5,9 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(HCENGINE_HEADER_FILES
+    "include/core.hpp"
     "include/debug_utils.hpp"
     "include/engine.hpp"
     "include/hello_cube.hpp"
+    "include/shader.hpp"
     "include/types.hpp"
 )
 
@@ -16,6 +18,7 @@ set(HCENGINE_SRC_FILES
     "src/engine.cpp"
     "src/logger.hpp"
     "src/logger.cpp"
+    "src/shader.cpp"
 )
 
 add_library(${PROJECT_NAME} STATIC ${HCENGINE_HEADER_FILES};${HCENGINE_SRC_FILES})
@@ -37,8 +40,10 @@ endif()
 target_precompile_headers(${PROJECT_NAME}
     PRIVATE
         "<algorithm>"
-        "<memory>"
+        "<filesystem>"
+        "<fstream>"
         "<limits>"
+        "<memory>"
         "<optional>"
         "<set>"
         "<stdexcept>"
@@ -71,6 +76,44 @@ message(STATUS "Configuring package: glfw")
 find_package(glfw3 CONFIG REQUIRED)
 message(STATUS "Configuring package: glm")
 find_package(glm CONFIG REQUIRED)
+
+# build shaders
+set(SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders")
+set(SHADER_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders")
+
+file(GLOB SHADER_SRC_FILES
+    ${SHADER_SOURCE_DIR}/*.vert
+    ${SHADER_SOURCE_DIR}/*.frag
+    ${SHADER_SOURCE_DIR}/*.comp
+    ${SHADER_SOURCE_DIR}/*.geom
+    ${SHADER_SOURCE_DIR}/*.tesc
+    ${SHADER_SOURCE_DIR}/*.tese
+    ${SHADER_SOURCE_DIR}/*.mesh
+    ${SHADER_SOURCE_DIR}/*.task
+    ${SHADER_SOURCE_DIR}/*.rgen
+    ${SHADER_SOURCE_DIR}/*.rchit
+    ${SHADER_SOURCE_DIR}/*.rmiss
+)
+
+add_custom_command(
+    COMMAND
+    ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIR}
+    OUTPUT ${SHADER_BINARY_DIR}
+    COMMENT "Creating ${SHADER_BINARY_DIR}"
+)
+
+foreach(SHADER_SRC IN LISTS SHADER_SRC_FILES)
+    get_filename_component(FILE_NAME ${SHADER_SRC} NAME)
+    set(SPV_SHADER "${SHADER_BINARY_DIR}/${FILE_NAME}.spv")
+    add_custom_command(
+        COMMAND ${glslc_executable} -o "${SPV_SHADER}" "${SHADER_SRC}"
+        OUTPUT "${SPV_SHADER}"
+        DEPENDS ${SHADER_SRC} ${SHADER_BINARY_DIR}
+        COMMENT "Compiling shader: ${FILE_NAME}"
+    )
+    list(APPEND SPV_SHADERS "${SPV_SHADER}")
+endforeach()
+add_custom_target(compile-shaders ALL DEPENDS ${SPV_SHADERS})
 
 # includes
 target_include_directories(${PROJECT_NAME}

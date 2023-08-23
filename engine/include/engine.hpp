@@ -9,14 +9,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "core.hpp"
 #include "debug_utils.hpp"
-#include "types.hpp"
-
-#define PANIC(msg)                                                      \
-    do {                                                                \
-        spdlog::critical("PANIC: {} ({}:{})", msg, __FILE__, __LINE__); \
-        throw std::runtime_error(msg);                                  \
-    } while (0)
 
 struct GLFWwindow;
 

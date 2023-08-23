@@ -1,7 +1,9 @@
 // vulkan needs to be included before glfw
 #include "engine.hpp"
-#include "logger.hpp"
 #include <GLFW/glfw3.h>
+
+#include "logger.hpp"
+#include "shader.hpp"
 
 namespace hc {
 
