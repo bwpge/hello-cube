@@ -117,14 +117,20 @@ void Engine::render() {
     _cmd_buffer->reset();
     _cmd_buffer->begin(vk::CommandBufferBeginInfo{
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-    vk::ClearValue clear{vk::ClearColorValue{0.0F, 0.0F, 0.2F, 1.0F}};
+    vk::ClearValue clear{vk::ClearColorValue{0.0f, 0.0f, 0.2f, 1.0f}};
     vk::RenderPassBeginInfo rpinfo{
         _render_pass.get(),
         _framebuffers[idx].get(),
         vk::Rect2D{{0, 0}, _swapchain_extent},
         clear,
     };
+
     _cmd_buffer->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
+    _cmd_buffer->bindPipeline(
+        vk::PipelineBindPoint::eGraphics, _graphics_pipeline.get()
+    );
+    // hardcoded to draw triangle in vertex shader
+    _cmd_buffer->draw(3, 1, 0, 0);
     _cmd_buffer->endRenderPass();
     _cmd_buffer->end();
 
@@ -168,6 +174,7 @@ void Engine::init_vulkan() {
     init_renderpass();
     init_framebuffers();
     init_sync_obj();
+    init_pipelines();
 }
 
 void Engine::create_instance() {
@@ -291,7 +298,7 @@ void Engine::create_device() {
         _indices.present
     );
 
-    f32 priority = 1.0F;
+    f32 priority = 1.0f;
     auto unique_idx = std::set<u32>{_indices.graphics, _indices.present};
     auto infos = std::vector<vk::DeviceQueueCreateInfo>{};
 
@@ -443,6 +450,93 @@ void Engine::init_sync_obj() {
     auto info = vk::SemaphoreCreateInfo{};
     _present_semaphore = _device->createSemaphoreUnique(info);
     _render_semaphore = _device->createSemaphoreUnique(info);
+}
+
+void Engine::init_pipelines() {
+    spdlog::trace("Initializing pipelines");
+
+    spdlog::debug("Loading shader modules");
+    auto frag = Shader::load_spv("../shaders/hello_triangle.frag.spv");
+    auto frag_mod = frag.shader_module(_device.get());
+    auto vert = Shader::load_spv("../shaders/hello_triangle.vert.spv");
+    auto vert_mod = vert.shader_module(_device.get());
+
+    vk::PipelineShaderStageCreateInfo vert_info{
+        {},
+        vk::ShaderStageFlagBits::eVertex,
+        vert_mod.get(),
+        "main",
+    };
+    vk::PipelineShaderStageCreateInfo frag_info{
+        {},
+        vk::ShaderStageFlagBits::eFragment,
+        frag_mod.get(),
+        "main",
+    };
+    auto stages =
+        std::vector<vk::PipelineShaderStageCreateInfo>{vert_info, frag_info};
+
+    vk::PipelineVertexInputStateCreateInfo vertext_input{};
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly{
+        {},
+        vk::PrimitiveTopology::eTriangleList,
+        VK_FALSE,
+    };
+    vk::Viewport viewport{
+        0.0f,
+        0.0f,
+        static_cast<float>(_swapchain_extent.width),
+        static_cast<float>(_swapchain_extent.height),
+        0.0f,
+        1.0f,
+    };
+    vk::Rect2D scissor{{0, 0}, _swapchain_extent};
+    vk::PipelineViewportStateCreateInfo viewport_info{};
+    viewport_info.setScissors(scissor);
+    viewport_info.setViewports(viewport);
+
+    vk::PipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.setCullMode(vk::CullModeFlagBits::eBack);
+    rasterizer.setFrontFace(vk::FrontFace::eClockwise);
+
+    vk::PipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.setMinSampleShading(1.0f);
+
+    vk::PipelineColorBlendAttachmentState color_blend_attachment{};
+    color_blend_attachment.setColorWriteMask(
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+    );
+
+    vk::PipelineColorBlendStateCreateInfo color_blend{};
+    color_blend.setAttachments(color_blend_attachment);
+
+    vk::PipelineLayoutCreateInfo layout_info{};
+    _layout = _device->createPipelineLayoutUnique(layout_info);
+
+    vk::GraphicsPipelineCreateInfo pipeline_info{
+        {},
+        stages,
+        &vertext_input,
+        &input_assembly,
+        nullptr,
+        &viewport_info,
+        &rasterizer,
+        &multisampling,
+        nullptr,
+        &color_blend,
+        nullptr,
+        _layout.get(),
+        _render_pass.get(),
+        0,
+    };
+    auto pipelines =
+        _device->createGraphicsPipelinesUnique(nullptr, pipeline_info);
+    if (pipelines.result != vk::Result::eSuccess) {
+        PANIC("Failed to create graphics pipeline");
+    }
+    _graphics_pipeline = std::move(pipelines.value[0]);
 }
 
 }  // namespace hc

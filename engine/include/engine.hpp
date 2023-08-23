@@ -43,6 +43,7 @@ private:
     void init_commands();
     void init_renderpass();
     void init_framebuffers();
+    void init_pipelines();
     void init_sync_obj();
     void create_instance();
     void create_surface();
@@ -73,6 +74,8 @@ private:
     std::vector<vk::UniqueFramebuffer> _framebuffers{};
     vk::UniqueSemaphore _present_semaphore{}, _render_semaphore{};
     vk::UniqueFence _render_fence{};
+    vk::UniquePipelineLayout _layout{};
+    vk::UniquePipeline _graphics_pipeline{};
 };
 
 }  // namespace hc
