@@ -41,12 +41,12 @@ public:
 
 private:
     void init_vulkan();
-    void init_swapchain();
+    void create_swapchain();
     void create_vertex_buffers();
     void init_commands();
     void init_renderpass();
-    void init_framebuffers();
-    void init_pipelines();
+    void create_framebuffers();
+    void create_pipelines();
     void init_sync_obj();
     void create_instance();
     void create_surface();

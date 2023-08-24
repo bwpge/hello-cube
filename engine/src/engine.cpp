@@ -189,13 +189,13 @@ void Engine::init_vulkan() {
     create_instance();
     create_surface();
     create_device();
-    init_swapchain();
+    create_swapchain();
     create_vertex_buffers();
     init_commands();
     init_renderpass();
-    init_framebuffers();
+    create_framebuffers();
     init_sync_obj();
-    init_pipelines();
+    create_pipelines();
 }
 
 void Engine::create_instance() {
@@ -344,8 +344,8 @@ void Engine::create_device() {
     _graphics_queue = _device->getQueue(_indices.graphics, 0);
 }
 
-void Engine::init_swapchain() {
-    spdlog::trace("Initializing swapchain");
+void Engine::create_swapchain() {
+    spdlog::trace("Creating swapchain");
 
     const auto capabilities = _gpu.getSurfaceCapabilitiesKHR(_surface.get());
     _swapchain_extent = get_surface_extent(_gpu, _surface.get(), _window);
@@ -477,8 +477,8 @@ void Engine::init_renderpass() {
     _render_pass = _device->createRenderPassUnique(rpci);
 }
 
-void Engine::init_framebuffers() {
-    spdlog::trace("Initializing framebuffers");
+void Engine::create_framebuffers() {
+    spdlog::trace("Creating framebuffers");
 
     _framebuffers.clear();
     for (const auto& iv : _swapchain_image_views) {
@@ -506,8 +506,8 @@ void Engine::init_sync_obj() {
     _render_semaphore = _device->createSemaphoreUnique(info);
 }
 
-void Engine::init_pipelines() {
-    spdlog::trace("Initializing pipelines");
+void Engine::create_pipelines() {
+    spdlog::trace("Creating graphics pipelines");
 
     spdlog::debug("Loading shader modules");
     auto frag = Shader::load_spv("../shaders/hello_triangle.frag.spv");
@@ -623,8 +623,9 @@ void Engine::recreate_swapchain() {
     }
 
     destroy_swapchain();
-    init_swapchain();
-    init_framebuffers();
+    create_swapchain();
+    create_framebuffers();
+    create_pipelines();
 }
 
 void Engine::destroy_swapchain() {
