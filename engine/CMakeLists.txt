@@ -44,6 +44,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<filesystem>"
         "<fstream>"
         "<limits>"
+        "<map>"
         "<memory>"
         "<optional>"
         "<set>"

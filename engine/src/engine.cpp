@@ -3,7 +3,6 @@
 #include <GLFW/glfw3.h>
 
 #include "logger.hpp"
-#include "shader.hpp"
 
 namespace hc {
 
@@ -118,7 +117,6 @@ void Engine::render() {
     if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
         res.result == vk::Result::eSuboptimalKHR) {
         _resized = false;
-        spdlog::debug("Recreating swapchain");
         recreate_swapchain();
         return;
     }
@@ -189,6 +187,7 @@ void Engine::init_vulkan() {
     create_instance();
     create_surface();
     create_device();
+    load_shaders();
     create_swapchain();
     create_vertex_buffers();
     init_commands();
@@ -342,6 +341,15 @@ void Engine::create_device() {
 
     _device = _gpu.createDeviceUnique(dci);
     _graphics_queue = _device->getQueue(_indices.graphics, 0);
+}
+
+void Engine::load_shaders() {
+    spdlog::debug("Loading shaders");
+
+    _shaders.fragment["hello_triangle"] =
+        Shader::load_spv("../shaders/hello_triangle.frag.spv");
+    _shaders.vertex["hello_triangle"] =
+        Shader::load_spv("../shaders/hello_triangle.vert.spv");
 }
 
 void Engine::create_swapchain() {
@@ -509,22 +517,20 @@ void Engine::init_sync_obj() {
 void Engine::create_pipelines() {
     spdlog::trace("Creating graphics pipelines");
 
-    spdlog::debug("Loading shader modules");
-    auto frag = Shader::load_spv("../shaders/hello_triangle.frag.spv");
-    auto frag_mod = frag.shader_module(_device.get());
-    auto vert = Shader::load_spv("../shaders/hello_triangle.vert.spv");
-    auto vert_mod = vert.shader_module(_device.get());
+    auto frag =
+        _shaders.fragment["hello_triangle"].shader_module(_device.get());
+    auto vert = _shaders.vertex["hello_triangle"].shader_module(_device.get());
 
     vk::PipelineShaderStageCreateInfo vert_info{
         {},
         vk::ShaderStageFlagBits::eVertex,
-        vert_mod.get(),
+        vert.get(),
         "main",
     };
     vk::PipelineShaderStageCreateInfo frag_info{
         {},
         vk::ShaderStageFlagBits::eFragment,
-        frag_mod.get(),
+        frag.get(),
         "main",
     };
     auto stages =

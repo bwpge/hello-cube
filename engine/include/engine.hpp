@@ -11,6 +11,7 @@
 
 #include "core.hpp"
 #include "debug_utils.hpp"
+#include "shader.hpp"
 #include "mesh.hpp"
 
 struct GLFWwindow;
@@ -51,6 +52,7 @@ private:
     void create_instance();
     void create_surface();
     void create_device();
+    void load_shaders();
     void recreate_swapchain();
     void destroy_swapchain();
     u32 find_memory_type(u32 filter, vk::MemoryPropertyFlags properties);
@@ -72,6 +74,7 @@ private:
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
     vk::PhysicalDevice _gpu{};
     vk::UniqueDevice _device{};
+    ShaderMap _shaders{};
     vk::Queue _graphics_queue{};
     vk::UniqueSurfaceKHR _surface{};
     QueueFamily _indices{};

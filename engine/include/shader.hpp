@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <map>
 
 #include <vulkan/vulkan.hpp>
 
@@ -38,6 +39,11 @@ public:
 
 private:
     std::vector<char> _buf{};
+};
+
+struct ShaderMap {
+    std::unordered_map<std::string_view, Shader> vertex{};
+    std::unordered_map<std::string_view, Shader> fragment{};
 };
 
 }  // namespace hc
