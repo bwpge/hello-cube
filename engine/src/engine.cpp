@@ -143,8 +143,9 @@ void Engine::render() {
     _cmd_buffer->bindPipeline(
         vk::PipelineBindPoint::eGraphics, _graphics_pipeline.get()
     );
-    // hardcoded to draw triangle in vertex shader
-    _cmd_buffer->draw(3, 1, 0, 0);
+    _cmd_buffer->bindVertexBuffers(0, _vertex_buffer.get(), {0});
+    _cmd_buffer->draw(static_cast<u32>(_vertices.size()), 1, 0, 0);
+
     _cmd_buffer->endRenderPass();
     _cmd_buffer->end();
 
@@ -189,6 +190,7 @@ void Engine::init_vulkan() {
     create_surface();
     create_device();
     init_swapchain();
+    create_vertex_buffers();
     init_commands();
     init_renderpass();
     init_framebuffers();
@@ -393,6 +395,39 @@ void Engine::init_swapchain() {
     }
 }
 
+void Engine::create_vertex_buffers() {
+    vk::BufferCreateInfo buf_info{};
+    buf_info.setSize(sizeof(Vertex) * _vertices.size());
+    buf_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
+    buf_info.setSharingMode(vk::SharingMode::eExclusive);
+    _vertex_buffer = _device->createBufferUnique(buf_info);
+
+    vk::MemoryRequirements mem_reqs{};
+    _device->getBufferMemoryRequirements(_vertex_buffer.get(), &mem_reqs);
+    spdlog::debug(
+        "Got memory reqs: bits={:x}, size={}",
+        mem_reqs.memoryTypeBits,
+        mem_reqs.size
+    );
+
+    vk::MemoryAllocateInfo alloc_info{
+        mem_reqs.size,
+        find_memory_type(
+            mem_reqs.memoryTypeBits,
+            vk::MemoryPropertyFlagBits::eHostCoherent |
+                vk::MemoryPropertyFlagBits::eHostVisible
+        )};
+    _vertex_buffer_mem = _device->allocateMemoryUnique(alloc_info);
+    _device->bindBufferMemory(
+        _vertex_buffer.get(), _vertex_buffer_mem.get(), 0
+    );
+
+    auto* data =
+        _device->mapMemory(_vertex_buffer_mem.get(), 0, buf_info.size, {});
+    memcpy(data, _vertices.data(), alloc_info.allocationSize);
+    _device->unmapMemory(_vertex_buffer_mem.get());
+}
+
 void Engine::init_commands() {
     spdlog::trace("Initializing command buffers");
 
@@ -495,7 +530,12 @@ void Engine::init_pipelines() {
     auto stages =
         std::vector<vk::PipelineShaderStageCreateInfo>{vert_info, frag_info};
 
-    vk::PipelineVertexInputStateCreateInfo vertext_input{};
+    auto vertex_binding = Vertex::get_binding_description();
+    auto vertex_attr = Vertex::get_attr_description();
+    vk::PipelineVertexInputStateCreateInfo vertex_input{};
+    vertex_input.setVertexBindingDescriptions(vertex_binding);
+    vertex_input.setVertexAttributeDescriptions(vertex_attr);
+
     vk::PipelineInputAssemblyStateCreateInfo input_assembly{
         {},
         vk::PrimitiveTopology::eTriangleList,
@@ -537,7 +577,7 @@ void Engine::init_pipelines() {
     vk::GraphicsPipelineCreateInfo pipeline_info{
         {},
         stages,
-        &vertext_input,
+        &vertex_input,
         &input_assembly,
         nullptr,
         &viewport_info,
@@ -592,6 +632,20 @@ void Engine::destroy_swapchain() {
     _swapchain_image_views.clear();
     _swapchain_images.clear();
     _swapchain = {};
+}
+
+u32 Engine::find_memory_type(u32 filter, vk::MemoryPropertyFlags properties) {
+    auto mem_props = _gpu.getMemoryProperties();
+
+    for (u32 i = 0; i < mem_props.memoryTypeCount; i++) {
+        // NOLINTNEXTLINE(readability-implicit-bool-conversion)
+        if ((filter & (1 << i)) && (mem_props.memoryTypes[i].propertyFlags &
+                                    properties) == properties) {
+            return i;
+        }
+    }
+
+    PANIC("Failed to locate suitable memory allocation type");
 }
 
 }  // namespace hc

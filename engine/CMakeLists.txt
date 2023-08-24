@@ -11,6 +11,7 @@ set(HCENGINE_HEADER_FILES
     "include/hello_cube.hpp"
     "include/shader.hpp"
     "include/types.hpp"
+    "include/mesh.hpp"
 )
 
 set(HCENGINE_SRC_FILES

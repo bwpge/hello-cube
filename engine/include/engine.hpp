@@ -11,6 +11,7 @@
 
 #include "core.hpp"
 #include "debug_utils.hpp"
+#include "mesh.hpp"
 
 struct GLFWwindow;
 
@@ -41,6 +42,7 @@ public:
 private:
     void init_vulkan();
     void init_swapchain();
+    void create_vertex_buffers();
     void init_commands();
     void init_renderpass();
     void init_framebuffers();
@@ -51,6 +53,7 @@ private:
     void create_device();
     void recreate_swapchain();
     void destroy_swapchain();
+    u32 find_memory_type(u32 filter, vk::MemoryPropertyFlags properties);
 
     bool _is_init{};
     bool _resized{};
@@ -59,6 +62,11 @@ private:
     i32 _width{1600};
     i32 _height{800};
     GLFWwindow* _window{nullptr};
+    const std::vector<Vertex> _vertices{
+        {{0.0f, -0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+    };
 
     vk::UniqueInstance _instance{};
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
@@ -72,6 +80,8 @@ private:
     vk::UniqueSwapchainKHR _swapchain{};
     std::vector<vk::Image> _swapchain_images{};
     std::vector<vk::UniqueImageView> _swapchain_image_views{};
+    vk::UniqueBuffer _vertex_buffer{};
+    vk::UniqueDeviceMemory _vertex_buffer_mem{};
     vk::UniqueCommandPool _cmd_pool{};
     vk::UniqueCommandBuffer _cmd_buffer{};
     vk::UniqueRenderPass _render_pass{};
