@@ -43,7 +43,8 @@ public:
 private:
     void init_vulkan();
     void create_swapchain();
-    void create_vertex_buffers();
+    void create_vertex_buffer();
+    void create_index_buffer();
     void create_buffer(
         vk::DeviceSize size,
         vk::BufferUsageFlags usage,
@@ -73,10 +74,12 @@ private:
     i32 _height{800};
     GLFWwindow* _window{nullptr};
     const std::vector<Vertex> _vertices{
-        {{0.0f, -0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
     };
+    const std::vector<u16> _indices{0, 1, 2, 2, 3, 0};
 
     vk::UniqueInstance _instance{};
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
@@ -85,14 +88,14 @@ private:
     ShaderMap _shaders{};
     vk::Queue _graphics_queue{};
     vk::UniqueSurfaceKHR _surface{};
-    QueueFamily _indices{};
+    QueueFamily _queue_family{};
     vk::Format _swapchain_format{};
     vk::Extent2D _swapchain_extent{};
     vk::UniqueSwapchainKHR _swapchain{};
     std::vector<vk::Image> _swapchain_images{};
     std::vector<vk::UniqueImageView> _swapchain_image_views{};
-    vk::UniqueBuffer _vertex_buffer{};
-    vk::UniqueDeviceMemory _vertex_buffer_mem{};
+    vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
+    vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};
     vk::UniqueCommandPool _cmd_pool{};
     vk::UniqueCommandBuffer _cmd_buffer{};
     vk::UniqueRenderPass _render_pass{};

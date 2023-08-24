@@ -70,7 +70,8 @@ void Engine::init() {
         _height
     );
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    _window = glfwCreateWindow(_width, _height, "Hello Cube", nullptr, nullptr);
+    _window =
+        glfwCreateWindow(_width, _height, _title.c_str(), nullptr, nullptr);
     glfwSetWindowUserPointer(_window, this);
 
     if (!_window) {
@@ -140,7 +141,10 @@ void Engine::render() {
         vk::PipelineBindPoint::eGraphics, _graphics_pipeline.get()
     );
     _cmd_buffer->bindVertexBuffers(0, _vertex_buffer.get(), {0});
-    _cmd_buffer->draw(static_cast<u32>(_vertices.size()), 1, 0, 0);
+    _cmd_buffer->bindIndexBuffer(
+        _index_buffer.get(), 0, vk::IndexType::eUint16
+    );
+    _cmd_buffer->drawIndexed(static_cast<u32>(_indices.size()), 1, 0, 0, 0);
 
     _cmd_buffer->endRenderPass();
     _cmd_buffer->end();
@@ -188,7 +192,8 @@ void Engine::init_vulkan() {
     init_commands();
     load_shaders();
     create_swapchain();
-    create_vertex_buffers();
+    create_vertex_buffer();
+    create_index_buffer();
     init_renderpass();
     create_framebuffers();
     init_sync_obj();
@@ -308,16 +313,17 @@ void Engine::create_device() {
     if (!idx_graphics.has_value() || !idx_present.has_value()) {
         PANIC("Failed to locate required queue indices");
     }
-    _indices.graphics = idx_graphics.value();
-    _indices.present = idx_present.value();
+    _queue_family.graphics = idx_graphics.value();
+    _queue_family.present = idx_present.value();
     spdlog::debug(
         "Located queue indices:\n    - Graphics: {}\n    - Present: {}",
-        _indices.graphics,
-        _indices.present
+        _queue_family.graphics,
+        _queue_family.present
     );
 
     f32 priority = 1.0f;
-    auto unique_idx = std::set<u32>{_indices.graphics, _indices.present};
+    auto unique_idx =
+        std::set<u32>{_queue_family.graphics, _queue_family.present};
     auto infos = std::vector<vk::DeviceQueueCreateInfo>{};
 
     for (u32 idx : unique_idx) {
@@ -338,7 +344,7 @@ void Engine::create_device() {
         .setPNext(&pdsf);
 
     _device = _gpu.createDeviceUnique(dci);
-    _graphics_queue = _device->getQueue(_indices.graphics, 0);
+    _graphics_queue = _device->getQueue(_queue_family.graphics, 0);
 }
 
 void Engine::load_shaders() {
@@ -375,8 +381,9 @@ void Engine::create_swapchain() {
         1,
         vk::ImageUsageFlagBits::eColorAttachment,
     };
-    if (_indices.graphics != _indices.present) {
-        auto indices = std::vector{_indices.graphics, _indices.present};
+    if (_queue_family.graphics != _queue_family.present) {
+        auto indices =
+            std::vector{_queue_family.graphics, _queue_family.present};
         scci.setImageSharingMode(vk::SharingMode::eConcurrent)
             .setQueueFamilyIndices(indices);
     } else {
@@ -401,9 +408,9 @@ void Engine::create_swapchain() {
     }
 }
 
-void Engine::create_vertex_buffers() {
-    vk::DeviceSize size = sizeof(Vertex) * _vertices.size();
-
+void Engine::create_vertex_buffer() {
+    vk::DeviceSize size =
+        sizeof(decltype(_vertices)::value_type) * _vertices.size();
     vk::UniqueBuffer buf{};
     vk::UniqueDeviceMemory mem{};
     this->create_buffer(
@@ -428,6 +435,35 @@ void Engine::create_vertex_buffers() {
         _vertex_buffer_mem
     );
     copy_buffer(buf.get(), _vertex_buffer.get(), size);
+}
+
+void Engine::create_index_buffer() {
+    vk::DeviceSize size =
+        sizeof(decltype(_indices)::value_type) * _indices.size();
+    vk::UniqueBuffer buf{};
+    vk::UniqueDeviceMemory mem{};
+    this->create_buffer(
+        size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostCoherent |
+            vk::MemoryPropertyFlagBits::eHostVisible,
+        buf,
+        mem
+    );
+
+    auto* data = _device->mapMemory(mem.get(), 0, size, {});
+    memcpy(data, _indices.data(), static_cast<usize>(size));
+    _device->unmapMemory(mem.get());
+
+    create_buffer(
+        size,
+        vk::BufferUsageFlagBits::eTransferDst |
+            vk::BufferUsageFlagBits::eIndexBuffer,
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        _index_buffer,
+        _index_buffer_mem
+    );
+    copy_buffer(buf.get(), _index_buffer.get(), size);
 }
 
 void Engine::create_buffer(
@@ -484,7 +520,7 @@ void Engine::init_commands() {
 
     vk::CommandPoolCreateInfo cpci{
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-        _indices.graphics,
+        _queue_family.graphics,
     };
     _cmd_pool = _device->createCommandPoolUnique(cpci);
 
