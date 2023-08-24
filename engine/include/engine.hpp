@@ -44,6 +44,14 @@ private:
     void init_vulkan();
     void create_swapchain();
     void create_vertex_buffers();
+    void create_buffer(
+        vk::DeviceSize size,
+        vk::BufferUsageFlags usage,
+        vk::MemoryPropertyFlags properties,
+        vk::UniqueBuffer& buffer,
+        vk::UniqueDeviceMemory& buffer_memory
+    );
+    void copy_buffer(vk::Buffer& src, vk::Buffer& dst, vk::DeviceSize size);
     void init_commands();
     void init_renderpass();
     void create_framebuffers();

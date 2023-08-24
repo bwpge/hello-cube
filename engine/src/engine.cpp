@@ -70,15 +70,13 @@ void Engine::init() {
         _height
     );
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    _window =
-        glfwCreateWindow(_width, _height, "Hello Triangle", nullptr, nullptr);
+    _window = glfwCreateWindow(_width, _height, "Hello Cube", nullptr, nullptr);
     glfwSetWindowUserPointer(_window, this);
 
     if (!_window) {
         PANIC("Failed to create window");
     }
 
-    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     glfwSetKeyCallback(
         _window,
         [](GLFWwindow* window, i32 key, i32, i32 action, i32) {
@@ -87,7 +85,6 @@ void Engine::init() {
             }
         }
     );
-    // NOLINTEND(bugprone-easily-swappable-parameters)
     glfwSetFramebufferSizeCallback(_window, framebufer_resize_callback);
 
     init_vulkan();
@@ -116,6 +113,7 @@ void Engine::render() {
     );
     if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
         res.result == vk::Result::eSuboptimalKHR) {
+        spdlog::debug("Window resized, re-creating swapchain");
         _resized = false;
         recreate_swapchain();
         return;
@@ -187,10 +185,10 @@ void Engine::init_vulkan() {
     create_instance();
     create_surface();
     create_device();
+    init_commands();
     load_shaders();
     create_swapchain();
     create_vertex_buffers();
-    init_commands();
     init_renderpass();
     create_framebuffers();
     init_sync_obj();
@@ -404,36 +402,81 @@ void Engine::create_swapchain() {
 }
 
 void Engine::create_vertex_buffers() {
-    vk::BufferCreateInfo buf_info{};
-    buf_info.setSize(sizeof(Vertex) * _vertices.size());
-    buf_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
-    buf_info.setSharingMode(vk::SharingMode::eExclusive);
-    _vertex_buffer = _device->createBufferUnique(buf_info);
+    vk::DeviceSize size = sizeof(Vertex) * _vertices.size();
+
+    vk::UniqueBuffer buf{};
+    vk::UniqueDeviceMemory mem{};
+    this->create_buffer(
+        size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostCoherent |
+            vk::MemoryPropertyFlagBits::eHostVisible,
+        buf,
+        mem
+    );
+
+    auto* data = _device->mapMemory(mem.get(), 0, size, {});
+    memcpy(data, _vertices.data(), static_cast<usize>(size));
+    _device->unmapMemory(mem.get());
+
+    create_buffer(
+        size,
+        vk::BufferUsageFlagBits::eTransferDst |
+            vk::BufferUsageFlagBits::eVertexBuffer,
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        _vertex_buffer,
+        _vertex_buffer_mem
+    );
+    copy_buffer(buf.get(), _vertex_buffer.get(), size);
+}
+
+void Engine::create_buffer(
+    vk::DeviceSize size,
+    vk::BufferUsageFlags usage,
+    vk::MemoryPropertyFlags properties,
+    vk::UniqueBuffer& buffer,
+    vk::UniqueDeviceMemory& buffer_memory
+) {
+    vk::BufferCreateInfo buffer_info{};
+    buffer_info.setSize(size).setUsage(usage).setSharingMode(
+        vk::SharingMode::eExclusive
+    );
+    buffer = _device->createBufferUnique(buffer_info);
 
     vk::MemoryRequirements mem_reqs{};
-    _device->getBufferMemoryRequirements(_vertex_buffer.get(), &mem_reqs);
-    spdlog::debug(
-        "Got memory reqs: bits={:x}, size={}",
-        mem_reqs.memoryTypeBits,
-        mem_reqs.size
-    );
+    _device->getBufferMemoryRequirements(buffer.get(), &mem_reqs);
 
     vk::MemoryAllocateInfo alloc_info{
         mem_reqs.size,
-        find_memory_type(
-            mem_reqs.memoryTypeBits,
-            vk::MemoryPropertyFlagBits::eHostCoherent |
-                vk::MemoryPropertyFlagBits::eHostVisible
-        )};
-    _vertex_buffer_mem = _device->allocateMemoryUnique(alloc_info);
-    _device->bindBufferMemory(
-        _vertex_buffer.get(), _vertex_buffer_mem.get(), 0
-    );
+        find_memory_type(mem_reqs.memoryTypeBits, properties),
+    };
+    buffer_memory = _device->allocateMemoryUnique(alloc_info);
+    _device->bindBufferMemory(buffer.get(), buffer_memory.get(), 0);
+}
 
-    auto* data =
-        _device->mapMemory(_vertex_buffer_mem.get(), 0, buf_info.size, {});
-    memcpy(data, _vertices.data(), alloc_info.allocationSize);
-    _device->unmapMemory(_vertex_buffer_mem.get());
+void Engine::copy_buffer(
+    vk::Buffer& src,
+    vk::Buffer& dst,
+    vk::DeviceSize size
+) {
+    vk::CommandBufferAllocateInfo alloc_info{
+        _cmd_pool.get(),
+        vk::CommandBufferLevel::ePrimary,
+        1,
+    };
+    auto cmd = std::move(_device->allocateCommandBuffersUnique(alloc_info)[0]);
+
+    vk::CommandBufferBeginInfo begin_info{
+        vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
+    cmd->begin(begin_info);
+    vk::BufferCopy copy{0, 0, size};
+    cmd->copyBuffer(src, dst, copy);
+    cmd->end();
+
+    vk::SubmitInfo submit_info{};
+    submit_info.setCommandBuffers(cmd.get());
+    _graphics_queue.submit(submit_info);
+    _graphics_queue.waitIdle();
 }
 
 void Engine::init_commands() {
