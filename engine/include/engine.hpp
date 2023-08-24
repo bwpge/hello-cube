@@ -36,6 +36,7 @@ public:
     void run();
     void render();
     void cleanup();
+    void resized();
 
 private:
     void init_vulkan();
@@ -48,9 +49,12 @@ private:
     void create_instance();
     void create_surface();
     void create_device();
+    void recreate_swapchain();
+    void destroy_swapchain();
 
-    bool _is_init{false};
-    i32 _frame_number{0};
+    bool _is_init{};
+    bool _resized{};
+    i32 _frame_number{};
     std::string _title{};
     i32 _width{1600};
     i32 _height{800};

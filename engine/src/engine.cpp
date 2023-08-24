@@ -48,6 +48,11 @@ auto get_surface_extent(
     return extent;
 }
 
+void framebufer_resize_callback(GLFWwindow* window, i32, i32) {
+    auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+    engine->resized();
+}
+
 void Engine::init() {
     if (_is_init) {
         spdlog::error("Attempted to initialize after already calling init()");
@@ -68,6 +73,7 @@ void Engine::init() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     _window =
         glfwCreateWindow(_width, _height, "Hello Triangle", nullptr, nullptr);
+    glfwSetWindowUserPointer(_window, this);
 
     if (!_window) {
         PANIC("Failed to create window");
@@ -83,6 +89,7 @@ void Engine::init() {
         }
     );
     // NOLINTEND(bugprone-easily-swappable-parameters)
+    glfwSetFramebufferSizeCallback(_window, framebufer_resize_callback);
 
     init_vulkan();
 
@@ -104,15 +111,22 @@ void Engine::render() {
         vk::Result::eSuccess) {
         PANIC("Failed to wait for render fence");
     }
-    _device->resetFences(_render_fence.get());
 
     auto res = _device->acquireNextImageKHR(
         _swapchain.get(), 1000000000, _present_semaphore.get(), nullptr
     );
+    if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
+        res.result == vk::Result::eSuboptimalKHR) {
+        _resized = false;
+        spdlog::debug("Recreating swapchain");
+        recreate_swapchain();
+        return;
+    }
     if (res.result != vk::Result::eSuccess) {
         PANIC("Failed to acquire next swapchain image");
     }
     u32 idx = res.value;
+    _device->resetFences(_render_fence.get());
 
     _cmd_buffer->reset();
     _cmd_buffer->begin(vk::CommandBufferBeginInfo{
@@ -134,13 +148,14 @@ void Engine::render() {
     _cmd_buffer->endRenderPass();
     _cmd_buffer->end();
 
-    vk::PipelineStageFlags flags =
+    vk::PipelineStageFlags mask =
         vk::PipelineStageFlagBits::eColorAttachmentOutput;
     vk::SubmitInfo submit{
         _present_semaphore.get(),
-        flags,
+        mask,
         _cmd_buffer.get(),
-        _render_semaphore.get()};
+        _render_semaphore.get(),
+    };
     _graphics_queue.submit(submit, _render_fence.get());
 
     vk::PresentInfoKHR present{_render_semaphore.get(), _swapchain.get(), idx};
@@ -161,6 +176,10 @@ void Engine::cleanup() {
         glfwDestroyWindow(_window);
     }
     glfwTerminate();
+}
+
+void Engine::resized() {
+    _resized = true;
 }
 
 void Engine::init_vulkan() {
@@ -363,7 +382,7 @@ void Engine::init_swapchain() {
     _swapchain = _device->createSwapchainKHRUnique(scci);
     _swapchain_images = _device->getSwapchainImagesKHR(_swapchain.get());
 
-    _swapchain_image_views.reserve(_swapchain_images.size());
+    _swapchain_image_views.clear();
     for (auto img : _swapchain_images) {
         vk::ImageViewCreateInfo ivci{};
         ivci.setImage(img)
@@ -426,7 +445,7 @@ void Engine::init_renderpass() {
 void Engine::init_framebuffers() {
     spdlog::trace("Initializing framebuffers");
 
-    _framebuffers.reserve(_swapchain_image_views.size());
+    _framebuffers.clear();
     for (const auto& iv : _swapchain_image_views) {
         auto attachments = std::vector<vk::ImageView>{iv.get()};
 
@@ -537,6 +556,42 @@ void Engine::init_pipelines() {
         PANIC("Failed to create graphics pipeline");
     }
     _graphics_pipeline = std::move(pipelines.value[0]);
+}
+
+void Engine::recreate_swapchain() {
+    // see:
+    //   - https://stackoverflow.com/questions/59825832
+    //   - https://github.com/KhronosGroup/Vulkan-Docs/issues/1059
+    _device->resetFences(_render_fence.get());
+    vk::PipelineStageFlags mask = vk::PipelineStageFlagBits::eBottomOfPipe;
+    vk::SubmitInfo info{};
+    info.setWaitSemaphores(_present_semaphore.get());
+    info.setWaitDstStageMask(mask);
+    _graphics_queue.submit(info, _render_fence.get());
+    _graphics_queue.waitIdle();
+
+    _device->waitIdle();
+
+    // HACK: spin lock minimized state
+    // this doesn't allow anything else in the application to execute
+    i32 w;
+    i32 h;
+    glfwGetFramebufferSize(_window, &w, &h);
+    while (w == 0 || h == 0) {
+        glfwGetFramebufferSize(_window, &w, &h);
+        glfwPollEvents();
+    }
+
+    destroy_swapchain();
+    init_swapchain();
+    init_framebuffers();
+}
+
+void Engine::destroy_swapchain() {
+    _framebuffers.clear();
+    _swapchain_image_views.clear();
+    _swapchain_images.clear();
+    _swapchain = {};
 }
 
 }  // namespace hc
