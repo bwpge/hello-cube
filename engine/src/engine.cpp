@@ -47,6 +47,18 @@ auto get_surface_extent(
     return extent;
 }
 
+void key_callback(GLFWwindow* window, i32 key, i32, i32 action, i32) {
+    if (action == GLFW_PRESS) {
+        if (key == GLFW_KEY_ESCAPE) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        } else if (key == GLFW_KEY_C) {
+            auto* engine =
+                reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+            engine->cycle_pipeline();
+        }
+    }
+}
+
 void framebufer_resize_callback(GLFWwindow* window, i32, i32) {
     auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
     engine->resized();
@@ -78,14 +90,7 @@ void Engine::init() {
         PANIC("Failed to create window");
     }
 
-    glfwSetKeyCallback(
-        _window,
-        [](GLFWwindow* window, i32 key, i32, i32 action, i32) {
-            if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-                glfwSetWindowShouldClose(window, GLFW_TRUE);
-            }
-        }
-    );
+    glfwSetKeyCallback(_window, key_callback);
     glfwSetFramebufferSizeCallback(_window, framebufer_resize_callback);
 
     init_vulkan();
@@ -138,7 +143,7 @@ void Engine::render() {
 
     _cmd_buffer->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
     _cmd_buffer->bindPipeline(
-        vk::PipelineBindPoint::eGraphics, _graphics_pipeline.get()
+        vk::PipelineBindPoint::eGraphics, _gfx_pipelines[_pipeline_idx].get()
     );
     _cmd_buffer->bindVertexBuffers(0, _vertex_buffer.get(), {0});
     _cmd_buffer->bindIndexBuffer(
@@ -181,6 +186,10 @@ void Engine::cleanup() {
 
 void Engine::resized() {
     _resized = true;
+}
+
+void Engine::cycle_pipeline() {
+    _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.size();
 }
 
 void Engine::init_vulkan() {
@@ -331,6 +340,9 @@ void Engine::create_device() {
         infos.push_back(dqci);
     }
 
+    vk::PhysicalDeviceFeatures features{};
+    features.setFillModeNonSolid(VK_TRUE);
+
     // https://stackoverflow.com/questions/73746051/vulkan-how-to-enable-synchronization-2-feature
     // need to enable synchronization2 feature to use
     // VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL
@@ -340,6 +352,7 @@ void Engine::create_device() {
     vk::DeviceCreateInfo dci{};
     auto extensions = std::vector{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     dci.setQueueCreateInfos(infos)
+        .setPEnabledFeatures(&features)
         .setPEnabledExtensionNames(extensions)
         .setPNext(&pdsf);
 
@@ -354,6 +367,8 @@ void Engine::load_shaders() {
         Shader::load_spv("../shaders/hello_triangle.frag.spv");
     _shaders.vertex["hello_triangle"] =
         Shader::load_spv("../shaders/hello_triangle.vert.spv");
+    _shaders.fragment["wireframe"] =
+        Shader::load_spv("../shaders/wireframe.frag.spv");
 }
 
 void Engine::create_swapchain() {
@@ -596,91 +611,26 @@ void Engine::init_sync_obj() {
 void Engine::create_pipelines() {
     spdlog::trace("Creating graphics pipelines");
 
-    auto frag =
-        _shaders.fragment["hello_triangle"].shader_module(_device.get());
-    auto vert = _shaders.vertex["hello_triangle"].shader_module(_device.get());
-
-    vk::PipelineShaderStageCreateInfo vert_info{
-        {},
-        vk::ShaderStageFlagBits::eVertex,
-        vert.get(),
-        "main",
-    };
-    vk::PipelineShaderStageCreateInfo frag_info{
-        {},
-        vk::ShaderStageFlagBits::eFragment,
-        frag.get(),
-        "main",
-    };
-    auto stages =
-        std::vector<vk::PipelineShaderStageCreateInfo>{vert_info, frag_info};
-
-    auto vertex_binding = Vertex::get_binding_description();
-    auto vertex_attr = Vertex::get_attr_description();
-    vk::PipelineVertexInputStateCreateInfo vertex_input{};
-    vertex_input.setVertexBindingDescriptions(vertex_binding);
-    vertex_input.setVertexAttributeDescriptions(vertex_attr);
-
-    vk::PipelineInputAssemblyStateCreateInfo input_assembly{
-        {},
-        vk::PrimitiveTopology::eTriangleList,
-        VK_FALSE,
-    };
-    vk::Viewport viewport{
-        0.0f,
-        0.0f,
-        static_cast<float>(_swapchain_extent.width),
-        static_cast<float>(_swapchain_extent.height),
-        0.0f,
-        1.0f,
-    };
-    vk::Rect2D scissor{{0, 0}, _swapchain_extent};
-    vk::PipelineViewportStateCreateInfo viewport_info{};
-    viewport_info.setScissors(scissor);
-    viewport_info.setViewports(viewport);
-
-    vk::PipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.setCullMode(vk::CullModeFlagBits::eBack);
-    rasterizer.setFrontFace(vk::FrontFace::eClockwise);
-
-    vk::PipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.setMinSampleShading(1.0f);
-
-    vk::PipelineColorBlendAttachmentState color_blend_attachment{};
-    color_blend_attachment.setColorWriteMask(
-        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-    );
-
-    vk::PipelineColorBlendStateCreateInfo color_blend{};
-    color_blend.setAttachments(color_blend_attachment);
-
-    vk::PipelineLayoutCreateInfo layout_info{};
-    _layout = _device->createPipelineLayoutUnique(layout_info);
-
-    vk::GraphicsPipelineCreateInfo pipeline_info{
-        {},
-        stages,
-        &vertex_input,
-        &input_assembly,
-        nullptr,
-        &viewport_info,
-        &rasterizer,
-        &multisampling,
-        nullptr,
-        &color_blend,
-        nullptr,
-        _layout.get(),
-        _render_pass.get(),
-        0,
-    };
-    auto pipelines =
-        _device->createGraphicsPipelinesUnique(nullptr, pipeline_info);
-    if (pipelines.result != vk::Result::eSuccess) {
-        PANIC("Failed to create graphics pipeline");
-    }
-    _graphics_pipeline = std::move(pipelines.value[0]);
+    PipelineBuilder builder{};
+    _gfx_pipelines =
+        builder.new_pipeline()
+            .add_vertex_shader(
+                _shaders.vertex["hello_triangle"].shader_module(_device.get())
+            )
+            .add_fragment_shader(
+                _shaders.fragment["hello_triangle"].shader_module(_device.get())
+            )
+            .set_extent(_swapchain_extent)
+            .new_pipeline()
+            .add_vertex_shader(
+                _shaders.vertex["hello_triangle"].shader_module(_device.get())
+            )
+            .add_fragment_shader(
+                _shaders.fragment["wireframe"].shader_module(_device.get())
+            )
+            .set_extent(_swapchain_extent)
+            .set_polygon_mode(vk::PolygonMode::eLine)
+            .build(_device.get(), _render_pass.get());
 }
 
 void Engine::recreate_swapchain() {

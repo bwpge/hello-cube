@@ -9,6 +9,7 @@ set(HCENGINE_HEADER_FILES
     "include/debug_utils.hpp"
     "include/engine.hpp"
     "include/hello_cube.hpp"
+    "include/pipeline_builder.hpp"
     "include/shader.hpp"
     "include/types.hpp"
     "include/mesh.hpp"
@@ -19,6 +20,7 @@ set(HCENGINE_SRC_FILES
     "src/engine.cpp"
     "src/logger.hpp"
     "src/logger.cpp"
+    "src/pipeline_builder.cpp"
     "src/shader.cpp"
 )
 
@@ -83,18 +85,12 @@ find_package(glm CONFIG REQUIRED)
 set(SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders")
 set(SHADER_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders")
 
-file(GLOB SHADER_SRC_FILES
-    ${SHADER_SOURCE_DIR}/*.vert
-    ${SHADER_SOURCE_DIR}/*.frag
-    ${SHADER_SOURCE_DIR}/*.comp
-    ${SHADER_SOURCE_DIR}/*.geom
-    ${SHADER_SOURCE_DIR}/*.tesc
-    ${SHADER_SOURCE_DIR}/*.tese
-    ${SHADER_SOURCE_DIR}/*.mesh
-    ${SHADER_SOURCE_DIR}/*.task
-    ${SHADER_SOURCE_DIR}/*.rgen
-    ${SHADER_SOURCE_DIR}/*.rchit
-    ${SHADER_SOURCE_DIR}/*.rmiss
+# file globs are fine here but require a full rebuild to discover new shader
+# files, and gets quite confusing if not acutely aware this is a requirement
+set(SHADER_SRC_FILES
+    "${SHADER_SOURCE_DIR}/hello_triangle.vert"
+    "${SHADER_SOURCE_DIR}/hello_triangle.frag"
+    "${SHADER_SOURCE_DIR}/wireframe.frag"
 )
 
 add_custom_command(
@@ -116,6 +112,7 @@ foreach(SHADER_SRC IN LISTS SHADER_SRC_FILES)
     list(APPEND SPV_SHADERS "${SPV_SHADER}")
 endforeach()
 add_custom_target(compile-shaders ALL DEPENDS ${SPV_SHADERS})
+add_dependencies(hclib compile-shaders)
 
 # includes
 target_include_directories(${PROJECT_NAME}

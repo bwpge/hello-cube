@@ -13,6 +13,7 @@
 #include "debug_utils.hpp"
 #include "shader.hpp"
 #include "mesh.hpp"
+#include "pipeline_builder.hpp"
 
 struct GLFWwindow;
 
@@ -39,6 +40,7 @@ public:
     void render();
     void cleanup();
     void resized();
+    void cycle_pipeline();
 
 private:
     void init_vulkan();
@@ -102,8 +104,8 @@ private:
     std::vector<vk::UniqueFramebuffer> _framebuffers{};
     vk::UniqueSemaphore _present_semaphore{}, _render_semaphore{};
     vk::UniqueFence _render_fence{};
-    vk::UniquePipelineLayout _layout{};
-    vk::UniquePipeline _graphics_pipeline{};
+    usize _pipeline_idx{};
+    std::vector<vk::UniquePipeline> _gfx_pipelines{};
 };
 
 }  // namespace hc

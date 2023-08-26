@@ -35,7 +35,7 @@ public:
     }
 
     [[nodiscard]]
-    vk::UniqueShaderModule shader_module(const vk::Device& device);
+    vk::UniqueShaderModule shader_module(const vk::Device& device) const;
 
 private:
     std::vector<char> _buf{};
