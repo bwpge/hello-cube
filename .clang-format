@@ -27,6 +27,7 @@ InsertNewlineAtEOF: true
 InsertBraces: true
 InsertTrailingCommas: Wrapped
 PackConstructorInitializers: CurrentLine
+PenaltyReturnTypeOnItsOwnLine: 1000
 PointerAlignment: Left
 ReferenceAlignment: Pointer
 SeparateDefinitionBlocks: Always
