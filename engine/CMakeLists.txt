@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(HCENGINE_HEADER_FILES
+    "include/allocator.hpp"
     "include/core.hpp"
     "include/debug_utils.hpp"
     "include/engine.hpp"
@@ -16,10 +17,12 @@ set(HCENGINE_HEADER_FILES
 )
 
 set(HCENGINE_SRC_FILES
+    "src/allocator.cpp"
     "src/debug_utils.cpp"
     "src/engine.cpp"
     "src/logger.hpp"
     "src/logger.cpp"
+    "src/mesh.cpp"
     "src/pipeline_builder.cpp"
     "src/shader.cpp"
 )
@@ -56,6 +59,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<string_view>"
         "<vector>"
         "<vulkan/vulkan.hpp>"
+        "<vk_mem_alloc.h>"
 )
 
 # configure options
@@ -74,6 +78,8 @@ find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)
 message("   -> lib:     ${Vulkan_LIBRARIES}")
 message("   -> include: ${Vulkan_INCLUDE_DIR}")
 message("   -> glslc:   ${glslc_executable}")
+message(STATUS "Configuring package: VulkanMemoryAllocator")
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 message(STATUS "Configuring package: spdlog")
 find_package(spdlog CONFIG REQUIRED)
 message(STATUS "Configuring package: glfw")
@@ -129,4 +135,5 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         Vulkan::Vulkan
         glm::glm
+        GPUOpen::VulkanMemoryAllocator
 )

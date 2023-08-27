@@ -6,6 +6,7 @@
   "dependencies": [
     "glm",
     "glfw3",
-    "spdlog"
+    "spdlog",
+    "vulkan-memory-allocator"
   ]
 }
