@@ -1,6 +1,7 @@
 #pragma once
 
 #include <spdlog/spdlog.h>
+#include <vulkan/vk_enum_string_helper.h>
 
 #include "types.hpp"
 
@@ -19,4 +20,18 @@
             spdlog::error("FAILED ASSERTION `{}`", STRINGIFY(expr)); \
             PANIC(msg);                                              \
         }                                                            \
+    } while (0)
+
+#define VK_CHECK(expr, msg)                \
+    do {                                   \
+        VkResult err = (expr);             \
+        if (err) {                         \
+            spdlog::error(                 \
+                "`{}` returned {} ({})",   \
+                STRINGIFY(expr),           \
+                string_VkResult(err),      \
+                static_cast<i64>(err)      \
+            );                             \
+            throw std::runtime_error(msg); \
+        }                                  \
     } while (0)
