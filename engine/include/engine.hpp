@@ -9,6 +9,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "allocator.hpp"
 #include "core.hpp"
 #include "debug_utils.hpp"
 #include "shader.hpp"
@@ -44,17 +45,9 @@ public:
 
 private:
     void init_vulkan();
+    void init_allocator();
     void create_swapchain();
-    void create_vertex_buffer();
-    void create_index_buffer();
-    void create_buffer(
-        vk::DeviceSize size,
-        vk::BufferUsageFlags usage,
-        vk::MemoryPropertyFlags properties,
-        vk::UniqueBuffer& buffer,
-        vk::UniqueDeviceMemory& buffer_memory
-    );
-    void copy_buffer(vk::Buffer& src, vk::Buffer& dst, vk::DeviceSize size);
+    void load_meshes();
     void init_commands();
     void init_renderpass();
     void create_framebuffers();
@@ -75,18 +68,12 @@ private:
     i32 _width{1600};
     i32 _height{800};
     GLFWwindow* _window{nullptr};
-    const std::vector<Vertex> _vertices{
-        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-    };
-    const std::vector<u16> _indices{0, 1, 2, 2, 3, 0};
 
     vk::UniqueInstance _instance{};
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
     vk::PhysicalDevice _gpu{};
     vk::UniqueDevice _device{};
+    VmaAllocator _allocator{};
     ShaderMap _shaders{};
     vk::Queue _graphics_queue{};
     vk::UniqueSurfaceKHR _surface{};
@@ -98,6 +85,7 @@ private:
     std::vector<vk::UniqueImageView> _swapchain_image_views{};
     vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
     vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};
+    std::vector<Mesh> _meshes{};
     vk::UniqueCommandPool _cmd_pool{};
     vk::UniqueCommandBuffer _cmd_buffer{};
     vk::UniqueRenderPass _render_pass{};

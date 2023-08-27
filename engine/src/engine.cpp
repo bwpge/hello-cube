@@ -145,11 +145,11 @@ void Engine::render() {
     _cmd_buffer->bindPipeline(
         vk::PipelineBindPoint::eGraphics, _gfx_pipelines[_pipeline_idx].get()
     );
-    _cmd_buffer->bindVertexBuffers(0, _vertex_buffer.get(), {0});
-    _cmd_buffer->bindIndexBuffer(
-        _index_buffer.get(), 0, vk::IndexType::eUint16
-    );
-    _cmd_buffer->drawIndexed(static_cast<u32>(_indices.size()), 1, 0, 0, 0);
+
+    for (const auto& mesh : _meshes) {
+        mesh.bind(_cmd_buffer.get());
+        mesh.draw(_cmd_buffer);
+    }
 
     _cmd_buffer->endRenderPass();
     _cmd_buffer->end();
@@ -178,6 +178,14 @@ void Engine::cleanup() {
     // vulkan resource cleanup is handled by vulkan-hpp,
     // destructors are called in reverse order of declaration
 
+    spdlog::trace("Destroying meshes");
+    for (auto& mesh : _meshes) {
+        mesh.destroy();
+    }
+    spdlog::trace("Destroying allocator");
+    vmaDestroyAllocator(_allocator);
+
+    spdlog::trace("Destroying window and terminating GLFW");
     if (_window) {
         glfwDestroyWindow(_window);
     }
@@ -198,15 +206,24 @@ void Engine::init_vulkan() {
     create_instance();
     create_surface();
     create_device();
+    init_allocator();
     init_commands();
     load_shaders();
     create_swapchain();
-    create_vertex_buffer();
-    create_index_buffer();
+    load_meshes();
     init_renderpass();
     create_framebuffers();
     init_sync_obj();
     create_pipelines();
+}
+
+void Engine::init_allocator() {
+    VmaAllocatorCreateInfo info{};
+    info.physicalDevice = _gpu;
+    info.device = _device.get();
+    info.instance = _instance.get();
+    info.vulkanApiVersion = VK_API_VERSION_1_3;
+    vmaCreateAllocator(&info, &_allocator);
 }
 
 void Engine::create_instance() {
@@ -423,111 +440,11 @@ void Engine::create_swapchain() {
     }
 }
 
-void Engine::create_vertex_buffer() {
-    vk::DeviceSize size =
-        sizeof(decltype(_vertices)::value_type) * _vertices.size();
-    vk::UniqueBuffer buf{};
-    vk::UniqueDeviceMemory mem{};
-    this->create_buffer(
-        size,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostCoherent |
-            vk::MemoryPropertyFlagBits::eHostVisible,
-        buf,
-        mem
-    );
-
-    auto* data = _device->mapMemory(mem.get(), 0, size, {});
-    memcpy(data, _vertices.data(), static_cast<usize>(size));
-    _device->unmapMemory(mem.get());
-
-    create_buffer(
-        size,
-        vk::BufferUsageFlagBits::eTransferDst |
-            vk::BufferUsageFlagBits::eVertexBuffer,
-        vk::MemoryPropertyFlagBits::eDeviceLocal,
-        _vertex_buffer,
-        _vertex_buffer_mem
-    );
-    copy_buffer(buf.get(), _vertex_buffer.get(), size);
-}
-
-void Engine::create_index_buffer() {
-    vk::DeviceSize size =
-        sizeof(decltype(_indices)::value_type) * _indices.size();
-    vk::UniqueBuffer buf{};
-    vk::UniqueDeviceMemory mem{};
-    this->create_buffer(
-        size,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostCoherent |
-            vk::MemoryPropertyFlagBits::eHostVisible,
-        buf,
-        mem
-    );
-
-    auto* data = _device->mapMemory(mem.get(), 0, size, {});
-    memcpy(data, _indices.data(), static_cast<usize>(size));
-    _device->unmapMemory(mem.get());
-
-    create_buffer(
-        size,
-        vk::BufferUsageFlagBits::eTransferDst |
-            vk::BufferUsageFlagBits::eIndexBuffer,
-        vk::MemoryPropertyFlagBits::eDeviceLocal,
-        _index_buffer,
-        _index_buffer_mem
-    );
-    copy_buffer(buf.get(), _index_buffer.get(), size);
-}
-
-void Engine::create_buffer(
-    vk::DeviceSize size,
-    vk::BufferUsageFlags usage,
-    vk::MemoryPropertyFlags properties,
-    vk::UniqueBuffer& buffer,
-    vk::UniqueDeviceMemory& buffer_memory
-) {
-    vk::BufferCreateInfo buffer_info{};
-    buffer_info.setSize(size).setUsage(usage).setSharingMode(
-        vk::SharingMode::eExclusive
-    );
-    buffer = _device->createBufferUnique(buffer_info);
-
-    vk::MemoryRequirements mem_reqs{};
-    _device->getBufferMemoryRequirements(buffer.get(), &mem_reqs);
-
-    vk::MemoryAllocateInfo alloc_info{
-        mem_reqs.size,
-        find_memory_type(mem_reqs.memoryTypeBits, properties),
-    };
-    buffer_memory = _device->allocateMemoryUnique(alloc_info);
-    _device->bindBufferMemory(buffer.get(), buffer_memory.get(), 0);
-}
-
-void Engine::copy_buffer(
-    vk::Buffer& src,
-    vk::Buffer& dst,
-    vk::DeviceSize size
-) {
-    vk::CommandBufferAllocateInfo alloc_info{
-        _cmd_pool.get(),
-        vk::CommandBufferLevel::ePrimary,
-        1,
-    };
-    auto cmd = std::move(_device->allocateCommandBuffersUnique(alloc_info)[0]);
-
-    vk::CommandBufferBeginInfo begin_info{
-        vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
-    cmd->begin(begin_info);
-    vk::BufferCopy copy{0, 0, size};
-    cmd->copyBuffer(src, dst, copy);
-    cmd->end();
-
-    vk::SubmitInfo submit_info{};
-    submit_info.setCommandBuffers(cmd.get());
-    _graphics_queue.submit(submit_info);
-    _graphics_queue.waitIdle();
+void Engine::load_meshes() {
+    _meshes.push_back(Mesh::quad(_allocator));
+    for (auto& mesh : _meshes) {
+        mesh.upload();
+    }
 }
 
 void Engine::init_commands() {
