@@ -49,3 +49,6 @@ _deps
 .idea/
 .vscode/
 build/
+
+# models
+!assets/*.obj
