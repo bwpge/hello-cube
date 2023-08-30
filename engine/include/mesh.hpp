@@ -1,6 +1,9 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
 
 #include "core.hpp"
 #include "types.hpp"
@@ -8,8 +11,15 @@
 
 namespace hc {
 
+struct Transform {
+    glm::vec3 translation{0.0f};
+    glm::vec3 rotation{0.0f};
+    glm::vec3 scale{1.0f};
+};
+
 struct Vertex {
-    glm::vec3 pos;
+    glm::vec3 position;
+    glm::vec3 normal;
     glm::vec3 color;
 
     static std::vector<vk::VertexInputBindingDescription>
@@ -27,10 +37,16 @@ struct Vertex {
             0,
             0,
             vk::Format::eR32G32B32Sfloat,
-            offsetof(Vertex, pos),
+            offsetof(Vertex, position),
+        };
+        auto normal_attr = vk::VertexInputAttributeDescription{
+            1,
+            0,
+            vk::Format::eR32G32B32Sfloat,
+            offsetof(Vertex, normal),
         };
         auto color_attr = vk::VertexInputAttributeDescription{
-            1,
+            2,
             0,
             vk::Format::eR32G32B32Sfloat,
             offsetof(Vertex, color),
@@ -38,6 +54,7 @@ struct Vertex {
 
         return {
             pos_attr,
+            normal_attr,
             color_attr,
         };
     }
@@ -53,20 +70,79 @@ public:
     Mesh& operator=(Mesh&&) noexcept = default;
     ~Mesh() = default;
 
-    static Mesh quad(VmaAllocator allocator) {
+    static Mesh quad(VmaAllocator allocator, glm::vec3 color) {
         auto mesh = Mesh{allocator};
         mesh._vertices = {
-            {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-            {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+            {{-0.5f, -0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
+            {{0.5f, -0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
+            {{0.5f, 0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
+            {{-0.5f, 0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
         };
         mesh._indices = {0, 1, 2, 2, 3, 0};
 
         return mesh;
     }
 
+    static Mesh cube(VmaAllocator allocator, glm::vec3 color) {
+        auto mesh = Mesh{allocator};
+
+        // TODO(bwpge): fix cube normals
+        mesh._vertices = {
+            // -X side
+            {{-0.5f, -0.5f, -0.5f}, {}, color},
+            {{-0.5f, -0.5f, 0.5f}, {}, color},
+            {{-0.5f, 0.5f, 0.5f}, {}, color},
+            {{-0.5f, 0.5f, 0.5f}, {}, color},
+            {{-0.5f, 0.5f, -0.5f}, {}, color},
+            {{-0.5f, -0.5f, -0.5f}, {}, color},
+
+            // -Z side
+            {{-0.5f, -0.5f, -0.5f}, {}, color},
+            {{0.5f, 0.5f, -0.5f}, {}, color},
+            {{0.5f, -0.5f, -0.5f}, {}, color},
+            {{-0.5f, -0.5f, -0.5f}, {}, color},
+            {{-0.5f, 0.5f, -0.5f}, {}, color},
+            {{0.5f, 0.5f, -0.5f}, {}, color},
+
+            // -Y side
+            {{-0.5f, -0.5f, -0.5f}, {}, color},
+            {{0.5f, -0.5f, -0.5f}, {}, color},
+            {{0.5f, -0.5f, 0.5f}, {}, color},
+            {{-0.5f, -0.5f, -0.5f}, {}, color},
+            {{0.5f, -0.5f, 0.5f}, {}, color},
+            {{-0.5f, -0.5f, 0.5f}, {}, color},
+
+            // +Y side
+            {{-0.5f, 0.5f, -0.5f}, {}, color},
+            {{-0.5f, 0.5f, 0.5f}, {}, color},
+            {{0.5f, 0.5f, 0.5f}, {}, color},
+            {{-0.5f, 0.5f, -0.5f}, {}, color},
+            {{0.5f, 0.5f, 0.5f}, {}, color},
+            {{0.5f, 0.5f, -0.5f}, {}, color},
+
+            // +X side
+            {{0.5f, 0.5f, -0.5f}, {}, color},
+            {{0.5f, 0.5f, 0.5f}, {}, color},
+            {{0.5f, -0.5f, 0.5f}, {}, color},
+            {{0.5f, -0.5f, 0.5f}, {}, color},
+            {{0.5f, -0.5f, -0.5f}, {}, color},
+            {{0.5f, 0.5f, -0.5f}, {}, color},
+
+            // +Z side
+            {{-0.5f, 0.5f, 0.5f}, {}, color},
+            {{-0.5f, -0.5f, 0.5f}, {}, color},
+            {{0.5f, 0.5f, 0.5f}, {}, color},
+            {{-0.5f, -0.5f, 0.5f}, {}, color},
+            {{0.5f, -0.5f, 0.5f}, {}, color},
+            {{0.5f, 0.5f, 0.5f}, {}, color},
+        };
+        return mesh;
+    }
+
+    [[nodiscard]]
+    glm::mat4 get_transform() const;
     void upload();
+    void update(double dt);
     void bind(vk::CommandBuffer& cmd) const;
     void draw(const vk::UniqueCommandBuffer& cmd) const;
     void draw(const vk::CommandBuffer& cmd) const;
@@ -122,8 +198,9 @@ private:
         vmaUnmapMemory(_allocator, buffer.allocation);
     }
 
+    Transform _transform{};
     std::vector<Vertex> _vertices{};
-    std::vector<u32> _indices{0, 1, 2, 2, 3, 0};
+    std::vector<u32> _indices{};
 
     AllocatedBuffer _vertex_buffer{};
     AllocatedBuffer _index_buffer{};

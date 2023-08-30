@@ -10,15 +10,23 @@
 #include <vulkan/vulkan.hpp>
 
 #include "allocator.hpp"
+#include "camera.hpp"
 #include "core.hpp"
 #include "debug_utils.hpp"
 #include "shader.hpp"
+#include "timer.hpp"
 #include "mesh.hpp"
 #include "pipeline_builder.hpp"
 
 struct GLFWwindow;
 
 namespace hc {
+
+struct PushConstants {
+    glm::mat4 projection;
+    glm::mat4 view;
+    glm::mat4 model;
+};
 
 struct QueueFamily {
     u32 graphics;
@@ -38,12 +46,15 @@ public:
 
     void init();
     void run();
+    void update(double dt);
     void render();
     void cleanup();
     void resized();
     void cycle_pipeline();
 
 private:
+    [[nodiscard]]
+    float aspect_ratio() const noexcept;
     void init_vulkan();
     void init_allocator();
     void create_swapchain();
@@ -68,6 +79,7 @@ private:
     i32 _width{1600};
     i32 _height{800};
     GLFWwindow* _window{nullptr};
+    Camera _camera{};
 
     vk::UniqueInstance _instance{};
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
@@ -93,7 +105,7 @@ private:
     vk::UniqueSemaphore _present_semaphore{}, _render_semaphore{};
     vk::UniqueFence _render_fence{};
     usize _pipeline_idx{};
-    std::vector<vk::UniquePipeline> _gfx_pipelines{};
+    GraphicsPipeline _gfx_pipelines{};
 };
 
 }  // namespace hc

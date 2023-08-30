@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(HCENGINE_HEADER_FILES
     "include/allocator.hpp"
+    "include/camera.hpp"
     "include/core.hpp"
     "include/debug_utils.hpp"
     "include/engine.hpp"
@@ -19,6 +20,7 @@ set(HCENGINE_HEADER_FILES
 
 set(HCENGINE_SRC_FILES
     "src/allocator.cpp"
+    "src/camera.cpp"
     "src/debug_utils.cpp"
     "src/engine.cpp"
     "src/logger.hpp"
@@ -97,6 +99,8 @@ set(SHADER_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders")
 # file globs are fine here but require a full rebuild to discover new shader
 # files, and gets quite confusing if not acutely aware this is a requirement
 set(SHADER_SRC_FILES
+    "${SHADER_SOURCE_DIR}/mesh.vert"
+    "${SHADER_SOURCE_DIR}/mesh.frag"
     "${SHADER_SOURCE_DIR}/hello_triangle.vert"
     "${SHADER_SOURCE_DIR}/hello_triangle.frag"
     "${SHADER_SOURCE_DIR}/wireframe.frag"

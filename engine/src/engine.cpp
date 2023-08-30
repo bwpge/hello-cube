@@ -90,6 +90,7 @@ void Engine::init() {
         PANIC("Failed to create window");
     }
 
+    _camera = Camera{glm::radians(70.f), aspect_ratio(), 0.1f, 200.f};
     glfwSetKeyCallback(_window, key_callback);
     glfwSetFramebufferSizeCallback(_window, framebufer_resize_callback);
 
@@ -100,12 +101,21 @@ void Engine::init() {
 
 void Engine::run() {
     spdlog::info("Entering main application loop");
+
+    Timer timer{};
     while (!glfwWindowShouldClose(_window)) {
         glfwPollEvents();
+        update(timer.tick());
         render();
     }
 
     _device->waitIdle();
+}
+
+void Engine::update(double dt) {
+    for (auto& mesh : _meshes) {
+        mesh.update(dt);
+    }
 }
 
 void Engine::render() {
@@ -143,9 +153,23 @@ void Engine::render() {
 
     _cmd_buffer->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
     _cmd_buffer->bindPipeline(
-        vk::PipelineBindPoint::eGraphics, _gfx_pipelines[_pipeline_idx].get()
+        vk::PipelineBindPoint::eGraphics,
+        _gfx_pipelines.pipelines[_pipeline_idx].get()
     );
 
+    auto proj = _camera.get_projection();
+    auto view = _camera.get_view();
+    // TODO(bwpge): fix hardcoded transform
+    auto model = _meshes[0].get_transform();
+    auto constants = PushConstants{proj, view, model};
+
+    _cmd_buffer->pushConstants(
+        _gfx_pipelines.layout.get(),
+        vk::ShaderStageFlagBits::eVertex,
+        0,
+        sizeof(PushConstants),
+        &constants
+    );
     for (const auto& mesh : _meshes) {
         mesh.bind(_cmd_buffer.get());
         mesh.draw(_cmd_buffer);
@@ -197,7 +221,13 @@ void Engine::resized() {
 }
 
 void Engine::cycle_pipeline() {
-    _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.size();
+    _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.pipelines.size();
+}
+
+float Engine::aspect_ratio() const noexcept {
+    return _height == 0
+               ? 0.f
+               : static_cast<float>(_width) / static_cast<float>(_height);
 }
 
 void Engine::init_vulkan() {
@@ -380,6 +410,8 @@ void Engine::create_device() {
 void Engine::load_shaders() {
     spdlog::debug("Loading shaders");
 
+    _shaders.vertex["mesh"] = Shader::load_spv("../shaders/mesh.vert.spv");
+    _shaders.fragment["mesh"] = Shader::load_spv("../shaders/mesh.frag.spv");
     _shaders.fragment["hello_triangle"] =
         Shader::load_spv("../shaders/hello_triangle.frag.spv");
     _shaders.vertex["hello_triangle"] =
@@ -441,7 +473,7 @@ void Engine::create_swapchain() {
 }
 
 void Engine::load_meshes() {
-    _meshes.push_back(Mesh::quad(_allocator));
+    _meshes.push_back(Mesh::cube(_allocator, {0.8f, 0.f, 0.f}));
     for (auto& mesh : _meshes) {
         mesh.upload();
     }
@@ -528,19 +560,26 @@ void Engine::init_sync_obj() {
 void Engine::create_pipelines() {
     spdlog::trace("Creating graphics pipelines");
 
+    // hardcoded push constants for matrices
+    vk::PushConstantRange push_constant{};
+    push_constant.setOffset(0)
+        .setSize(sizeof(PushConstants))
+        .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
     PipelineBuilder builder{};
     _gfx_pipelines =
-        builder.new_pipeline()
+        builder.set_push_constant(push_constant)
+            .new_pipeline()
             .add_vertex_shader(
-                _shaders.vertex["hello_triangle"].shader_module(_device.get())
+                _shaders.vertex["mesh"].shader_module(_device.get())
             )
             .add_fragment_shader(
-                _shaders.fragment["hello_triangle"].shader_module(_device.get())
+                _shaders.fragment["mesh"].shader_module(_device.get())
             )
             .set_extent(_swapchain_extent)
             .new_pipeline()
             .add_vertex_shader(
-                _shaders.vertex["hello_triangle"].shader_module(_device.get())
+                _shaders.vertex["mesh"].shader_module(_device.get())
             )
             .add_fragment_shader(
                 _shaders.fragment["wireframe"].shader_module(_device.get())
@@ -573,6 +612,8 @@ void Engine::recreate_swapchain() {
         glfwGetFramebufferSize(_window, &w, &h);
         glfwPollEvents();
     }
+
+    _camera.set_aspect(aspect_ratio());
 
     destroy_swapchain();
     create_swapchain();

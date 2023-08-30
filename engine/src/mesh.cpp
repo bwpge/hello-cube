@@ -8,11 +8,23 @@ Mesh::Mesh(VmaAllocator allocator) : _allocator{allocator} {
     }
 }
 
+glm::mat4 Mesh::get_transform() const {
+    auto translate = glm::translate(glm::mat4(1.0f), _transform.translation);
+    auto rotate = glm::toMat4(glm::quat(_transform.rotation));
+    auto scale = glm::scale(glm::mat4(1.0f), _transform.scale);
+    return translate * rotate * scale;
+}
+
 void Mesh::upload() {
     upload_vertex_buffer();
     if (!_indices.empty()) {
         upload_index_buffer();
     }
+}
+
+void Mesh::update(double dt) {
+    _transform.rotation.y +=
+        glm::radians(static_cast<float>(360.0 * dt * 0.25));
 }
 
 void Mesh::bind(vk::CommandBuffer& cmd) const {

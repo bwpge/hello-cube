@@ -57,8 +57,15 @@ PipelineBuilder& PipelineBuilder::set_polygon_mode(vk::PolygonMode mode) {
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::set_push_constant(
+    vk::PushConstantRange push_constant
+) {
+    _push_constant = push_constant;
+    return *this;
+}
+
 [[nodiscard]]
-std::vector<vk::UniquePipeline> PipelineBuilder::build(
+GraphicsPipeline PipelineBuilder::build(
     const vk::Device& device,
     const vk::RenderPass& render_pass
 ) {
@@ -98,6 +105,9 @@ std::vector<vk::UniquePipeline> PipelineBuilder::build(
     color_blend.setAttachments(color_blend_attachment);
 
     vk::PipelineLayoutCreateInfo layout_info{};
+    if (_push_constant.size > 0) {
+        layout_info.setPushConstantRanges(_push_constant);
+    }
     auto layout = device.createPipelineLayoutUnique(layout_info);
 
     std::vector<vk::GraphicsPipelineCreateInfo> pipeline_infos{};
@@ -148,7 +158,8 @@ std::vector<vk::UniquePipeline> PipelineBuilder::build(
     _rasterizers.clear();
     _idx = 0;
 
-    return std::move(pipelines.value);
+    GraphicsPipeline result{std::move(layout), std::move(pipelines.value)};
+    return result;
 }
 
 }  // namespace hc

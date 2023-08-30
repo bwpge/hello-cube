@@ -8,6 +8,11 @@
 
 namespace hc {
 
+struct GraphicsPipeline {
+    vk::UniquePipelineLayout layout;
+    std::vector<vk::UniquePipeline> pipelines;
+};
+
 struct PipelineConfig {
     std::vector<vk::UniqueShaderModule> shaders{};
     std::vector<vk::ShaderStageFlagBits> stage_flags{};
@@ -26,8 +31,10 @@ public:
 
     PipelineBuilder& set_polygon_mode(vk::PolygonMode mode);
 
+    PipelineBuilder& set_push_constant(vk::PushConstantRange push_constant);
+
     [[nodiscard]]
-    std::vector<vk::UniquePipeline> build(
+    GraphicsPipeline build(
         const vk::Device& device,
         const vk::RenderPass& render_pass
     );
@@ -36,6 +43,7 @@ private:
     std::vector<PipelineConfig> _config{};
     std::vector<std::vector<vk::PipelineShaderStageCreateInfo>> _stages{};
     std::vector<vk::PipelineRasterizationStateCreateInfo> _rasterizers{};
+    vk::PushConstantRange _push_constant{};
     usize _idx{};
 };
 
