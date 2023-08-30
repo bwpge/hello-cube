@@ -12,6 +12,7 @@ set(HCENGINE_HEADER_FILES
     "include/hello_cube.hpp"
     "include/pipeline_builder.hpp"
     "include/shader.hpp"
+    "include/timer.hpp"
     "include/types.hpp"
     "include/mesh.hpp"
 )
@@ -25,6 +26,7 @@ set(HCENGINE_SRC_FILES
     "src/mesh.cpp"
     "src/pipeline_builder.cpp"
     "src/shader.cpp"
+    "src/timer.cpp"
 )
 
 add_library(${PROJECT_NAME} STATIC ${HCENGINE_HEADER_FILES};${HCENGINE_SRC_FILES})
@@ -57,6 +59,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<sstream>"
         "<string>"
         "<string_view>"
+        "<utility>"
         "<vector>"
         "<vulkan/vulkan.hpp>"
         "<vk_mem_alloc.h>"
