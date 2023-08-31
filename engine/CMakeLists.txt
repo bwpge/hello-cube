@@ -91,6 +91,9 @@ message(STATUS "Configuring package: glfw")
 find_package(glfw3 CONFIG REQUIRED)
 message(STATUS "Configuring package: glm")
 find_package(glm CONFIG REQUIRED)
+message(STATUS "Configuring package: tinyobjloader")
+find_package(tinyobjloader CONFIG REQUIRED)
+
 
 # build shaders
 set(SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders")
@@ -127,6 +130,14 @@ endforeach()
 add_custom_target(compile-shaders ALL DEPENDS ${SPV_SHADERS})
 add_dependencies(hclib compile-shaders)
 
+set(MODEL_SRC_DIR "${CMAKE_SOURCE_DIR}/assets")
+set(MODEL_OUT_DIR "${CMAKE_BINARY_DIR}/assets")
+add_custom_target(copy-assets
+    COMMAND
+    ${CMAKE_COMMAND} -E copy_directory ${MODEL_SRC_DIR} ${MODEL_OUT_DIR}
+)
+add_dependencies(hclib copy-assets)
+
 # includes
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -143,4 +154,5 @@ target_link_libraries(${PROJECT_NAME}
         Vulkan::Vulkan
         glm::glm
         GPUOpen::VulkanMemoryAllocator
+        tinyobjloader::tinyobjloader
 )

@@ -7,6 +7,7 @@
     "glm",
     "glfw3",
     "spdlog",
+    "tinyobjloader",
     "vulkan-memory-allocator"
   ]
 }
