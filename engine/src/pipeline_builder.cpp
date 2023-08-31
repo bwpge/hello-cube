@@ -52,8 +52,18 @@ PipelineBuilder& PipelineBuilder::set_extent(const vk::Extent2D& extent) {
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::set_front_face(vk::FrontFace front) {
+    _config[_idx].front_face = front;
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::set_cull_mode(vk::CullModeFlagBits mode) {
+    _config[_idx].cull_mode = mode;
+    return *this;
+}
+
 PipelineBuilder& PipelineBuilder::set_polygon_mode(vk::PolygonMode mode) {
-    _config[_idx].mode = mode;
+    _config[_idx].polygon_mode = mode;
     return *this;
 }
 
@@ -130,9 +140,9 @@ GraphicsPipeline PipelineBuilder::build(
 
         _rasterizers[i]
             .setLineWidth(1.0f)
-            .setCullMode(vk::CullModeFlagBits::eBack)
-            .setFrontFace(vk::FrontFace::eClockwise)
-            .setPolygonMode(_config[i].mode);
+            .setCullMode(_config[i].cull_mode)
+            .setFrontFace(_config[i].front_face)
+            .setPolygonMode(_config[i].polygon_mode);
 
         vk::GraphicsPipelineCreateInfo info{};
         info.setStages(_stages[i])

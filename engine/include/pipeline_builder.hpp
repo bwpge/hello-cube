@@ -16,8 +16,10 @@ struct GraphicsPipeline {
 struct PipelineConfig {
     std::vector<vk::UniqueShaderModule> shaders{};
     std::vector<vk::ShaderStageFlagBits> stage_flags{};
+    vk::CullModeFlagBits cull_mode{vk::CullModeFlagBits::eBack};
     vk::Extent2D extent{};
-    vk::PolygonMode mode{vk::PolygonMode::eFill};
+    vk::PolygonMode polygon_mode{vk::PolygonMode::eFill};
+    vk::FrontFace front_face{vk::FrontFace::eCounterClockwise};
 };
 
 class PipelineBuilder {
@@ -26,11 +28,10 @@ public:
 
     PipelineBuilder& add_vertex_shader(vk::UniqueShaderModule shader);
     PipelineBuilder& add_fragment_shader(vk::UniqueShaderModule shader);
-
     PipelineBuilder& set_extent(const vk::Extent2D& extent);
-
+    PipelineBuilder& set_front_face(vk::FrontFace front);
+    PipelineBuilder& set_cull_mode(vk::CullModeFlagBits mode);
     PipelineBuilder& set_polygon_mode(vk::PolygonMode mode);
-
     PipelineBuilder& set_push_constant(vk::PushConstantRange push_constant);
 
     [[nodiscard]]

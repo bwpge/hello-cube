@@ -473,7 +473,9 @@ void Engine::create_swapchain() {
 }
 
 void Engine::load_meshes() {
-    _meshes.push_back(Mesh::cube(_allocator, {0.8f, 0.f, 0.f}));
+    _meshes.emplace_back(
+        Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj")
+    );
     for (auto& mesh : _meshes) {
         mesh.upload();
     }
@@ -577,6 +579,7 @@ void Engine::create_pipelines() {
                 _shaders.fragment["mesh"].shader_module(_device.get())
             )
             .set_extent(_swapchain_extent)
+            .set_cull_mode(vk::CullModeFlagBits::eBack)
             .new_pipeline()
             .add_vertex_shader(
                 _shaders.vertex["mesh"].shader_module(_device.get())
@@ -586,6 +589,7 @@ void Engine::create_pipelines() {
             )
             .set_extent(_swapchain_extent)
             .set_polygon_mode(vk::PolygonMode::eLine)
+            .set_cull_mode(vk::CullModeFlagBits::eNone)
             .build(_device.get(), _render_pass.get());
 }
 
