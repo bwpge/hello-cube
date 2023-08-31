@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <vulkan/vulkan.hpp>
+#include <glm/glm.hpp>
 
 #include "allocator.hpp"
 #include "camera.hpp"
@@ -49,8 +50,13 @@ public:
     void update(double dt);
     void render();
     void cleanup();
-    void resized();
+
     void cycle_pipeline();
+    void on_resize();
+    void on_focus(bool focused);
+    void on_mouse_move(glm::dvec2 pos, double dt);
+    void on_scroll(double dx, double dy);
+    void on_key_press(i32 keycode);
 
 private:
     [[nodiscard]]
@@ -73,13 +79,16 @@ private:
     u32 find_memory_type(u32 filter, vk::MemoryPropertyFlags properties);
 
     bool _is_init{};
+    bool _focused{};
     bool _resized{};
     i32 _frame_number{};
     std::string _title{};
     i32 _width{1600};
     i32 _height{800};
     GLFWwindow* _window{nullptr};
+    Timer _timer{};
     Camera _camera{};
+    glm::dvec2 _cursor{};
 
     vk::UniqueInstance _instance{};
     vk::UniqueDebugUtilsMessengerEXT _messenger{};

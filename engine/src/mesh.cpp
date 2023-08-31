@@ -23,11 +23,6 @@ void Mesh::upload() {
     }
 }
 
-void Mesh::update(double dt) {
-    _transform.rotation.y +=
-        glm::radians(static_cast<float>(360.0 * dt * 0.25));
-}
-
 void Mesh::bind(vk::CommandBuffer& cmd) const {
     if (!_vertex_buffer.buffer) {
         PANIC(spdlog::fmt_lib::format(

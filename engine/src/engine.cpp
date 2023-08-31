@@ -4,6 +4,8 @@
 
 #include "logger.hpp"
 
+#define SYNC_TIMEOUT 1000000000
+
 namespace hc {
 
 auto get_extensions() -> std::vector<const char*> {
@@ -47,21 +49,32 @@ auto get_surface_extent(
     return extent;
 }
 
+void window_focus_callback(GLFWwindow* window, i32 focused) {
+    if (focused) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+    auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+    engine->on_focus(static_cast<bool>(focused));
+}
+
 void key_callback(GLFWwindow* window, i32 key, i32, i32 action, i32) {
     if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_ESCAPE) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        } else if (key == GLFW_KEY_C) {
-            auto* engine =
-                reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
-            engine->cycle_pipeline();
-        }
+        auto* engine =
+            reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+        engine->on_key_press(key);
     }
+}
+
+void scroll_callback(GLFWwindow* window, double dx, double dy) {
+    auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+    engine->on_scroll(dx, dy);
 }
 
 void framebufer_resize_callback(GLFWwindow* window, i32, i32) {
     auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
-    engine->resized();
+    engine->on_resize();
 }
 
 void Engine::init() {
@@ -90,11 +103,20 @@ void Engine::init() {
         PANIC("Failed to create window");
     }
 
-    _camera = Camera{glm::radians(70.f), aspect_ratio(), 0.1f, 200.f};
+    _camera = Camera{45.f, aspect_ratio(), 0.1f, 200.f};
+    _focused = true;
+
+    glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
+    glfwSetWindowFocusCallback(_window, window_focus_callback);
     glfwSetKeyCallback(_window, key_callback);
+    glfwSetScrollCallback(_window, scroll_callback);
     glfwSetFramebufferSizeCallback(_window, framebufer_resize_callback);
 
     init_vulkan();
+    glfwGetCursorPos(_window, &_cursor.x, &_cursor.y);
 
     _is_init = true;
 }
@@ -102,10 +124,10 @@ void Engine::init() {
 void Engine::run() {
     spdlog::info("Entering main application loop");
 
-    Timer timer{};
+    _timer.reset();
     while (!glfwWindowShouldClose(_window)) {
         glfwPollEvents();
-        update(timer.tick());
+        update(_timer.tick());
         render();
     }
 
@@ -113,19 +135,51 @@ void Engine::run() {
 }
 
 void Engine::update(double dt) {
-    for (auto& mesh : _meshes) {
-        mesh.update(dt);
+    if (!_is_init || !_focused) {
+        return;
+    }
+
+    auto w = glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS;
+    auto a = glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS;
+    auto s = glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS;
+    auto d = glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS;
+    auto alt = glfwGetKey(_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS;
+    auto space = glfwGetKey(_window, GLFW_KEY_SPACE) == GLFW_PRESS;
+
+    if (w) {
+        _camera.move(CameraDirection::Forward, dt);
+    }
+    if (a) {
+        _camera.move(CameraDirection::Left, dt);
+    }
+    if (s) {
+        _camera.move(CameraDirection::Backward, dt);
+    }
+    if (d) {
+        _camera.move(CameraDirection::Right, dt);
+    }
+    if (alt) {
+        _camera.move(CameraDirection::Down, dt);
+    }
+    if (space) {
+        _camera.move(CameraDirection::Up, dt);
+    }
+
+    glm::dvec2 pos{};
+    glfwGetCursorPos(_window, &pos.x, &pos.y);
+    if (pos != _cursor) {
+        on_mouse_move(pos, dt);
     }
 }
 
 void Engine::render() {
-    if (_device->waitForFences(_render_fence.get(), VK_TRUE, 1000000000) !=
+    if (_device->waitForFences(_render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
         vk::Result::eSuccess) {
         PANIC("Failed to wait for render fence");
     }
 
     auto res = _device->acquireNextImageKHR(
-        _swapchain.get(), 1000000000, _present_semaphore.get(), nullptr
+        _swapchain.get(), SYNC_TIMEOUT, _present_semaphore.get(), nullptr
     );
     if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
         res.result == vk::Result::eSuboptimalKHR) {
@@ -216,12 +270,59 @@ void Engine::cleanup() {
     glfwTerminate();
 }
 
-void Engine::resized() {
+void Engine::cycle_pipeline() {
+    _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.pipelines.size();
+}
+
+void Engine::on_resize() {
     _resized = true;
 }
 
-void Engine::cycle_pipeline() {
-    _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.pipelines.size();
+void Engine::on_scroll(double, double dy) {
+    if (!_is_init || !_focused) {
+        return;
+    }
+    if (dy == 0.0) {
+        return;
+    }
+
+    auto direction = dy > 0.0 ? ZoomDirection::In : ZoomDirection::Out;
+    _camera.zoom(direction, _timer.elapsed_secs());
+}
+
+void Engine::on_key_press(i32 keycode) {
+    if (!_is_init || !_focused) {
+        return;
+    }
+
+    switch (keycode) {
+        case GLFW_KEY_ESCAPE:
+            glfwSetWindowShouldClose(_window, GLFW_TRUE);
+            break;
+        case GLFW_KEY_C:
+            cycle_pipeline();
+            break;
+        case GLFW_KEY_R:
+            _camera.reset();
+            break;
+        default:
+            break;
+    }
+}
+
+void Engine::on_focus(bool focused) {
+    _focused = focused;
+}
+
+void Engine::on_mouse_move(glm::dvec2 pos, double dt) {
+    if (!_is_init || !_focused) {
+        return;
+    }
+
+    auto dx = pos.x - _cursor.x;
+    auto dy = pos.y - _cursor.y;
+    _cursor = pos;
+    _camera.rotate(dx, dy, dt);
 }
 
 float Engine::aspect_ratio() const noexcept {

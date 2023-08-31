@@ -138,6 +138,12 @@ add_custom_target(copy-assets
 )
 add_dependencies(hclib copy-assets)
 
+target_compile_definitions(hclib
+    PUBLIC
+        GLM_FORCE_DEPTH_ZERO_TO_ONE
+        GLM_ENABLE_EXPERIMENTAL
+)
+
 # includes
 target_include_directories(${PROJECT_NAME}
     PUBLIC

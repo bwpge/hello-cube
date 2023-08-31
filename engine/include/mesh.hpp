@@ -4,7 +4,6 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 #include <tiny_obj_loader.h>
 
@@ -179,10 +178,6 @@ public:
         Mesh mesh{};
         mesh._allocator = allocator;
 
-        // y-axis mismatch between model and vulkan also requires using
-        // counter-clockwise face culling
-        mesh._transform.scale.y *= -1;
-
         for (auto& shape : shapes) {
             size_t offset = 0;
             for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
@@ -217,7 +212,6 @@ public:
     [[nodiscard]]
     glm::mat4 get_transform() const;
     void upload();
-    void update(double dt);
     void bind(vk::CommandBuffer& cmd) const;
     void draw(const vk::UniqueCommandBuffer& cmd) const;
     void draw(const vk::CommandBuffer& cmd) const;
