@@ -145,7 +145,13 @@ void Engine::update(double dt) {
     auto d = glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS;
     auto alt = glfwGetKey(_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS;
     auto space = glfwGetKey(_window, GLFW_KEY_SPACE) == GLFW_PRESS;
+    auto shift = glfwGetKey(_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
 
+    if (shift) {
+        _camera.set_sprint(true);
+    } else {
+        _camera.set_sprint(false);
+    }
     if (w) {
         _camera.move(CameraDirection::Forward, dt);
     }
@@ -217,18 +223,18 @@ void Engine::render() {
 
     auto proj = _camera.get_projection();
     auto view = _camera.get_view();
-    // TODO(bwpge): fix hardcoded transform
-    auto model = _meshes[0].get_transform();
-    auto constants = PushConstants{proj, view, model};
 
-    _cmd_buffer->pushConstants(
-        _gfx_pipelines.layout.get(),
-        vk::ShaderStageFlagBits::eVertex,
-        0,
-        sizeof(PushConstants),
-        &constants
-    );
     for (const auto& mesh : _meshes) {
+        auto model = mesh.get_transform();
+        auto constants = PushConstants{proj, view, model};
+
+        _cmd_buffer->pushConstants(
+            _gfx_pipelines.layout.get(),
+            vk::ShaderStageFlagBits::eVertex,
+            0,
+            sizeof(PushConstants),
+            &constants
+        );
         mesh.bind(_cmd_buffer.get());
         mesh.draw(_cmd_buffer);
     }

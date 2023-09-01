@@ -145,13 +145,6 @@ public:
         VmaAllocator allocator,
         const std::filesystem::path& path
     ) {
-        std::ifstream file{path, std::ios::in | std::ios::binary};
-        if (!file.is_open()) {
-            PANIC(spdlog::fmt_lib::format(
-                "failed to open obj file '{}'", path.string()
-            ));
-        }
-
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
@@ -166,7 +159,7 @@ public:
             &warn,
             &err,
             path.string().c_str(),
-            nullptr
+            path.parent_path().string().c_str()
         );
         if (!warn.empty()) {
             spdlog::warn("[tiny_obj_loader] {}", warn);
@@ -216,6 +209,10 @@ public:
     void draw(const vk::UniqueCommandBuffer& cmd) const;
     void draw(const vk::CommandBuffer& cmd) const;
     void destroy();
+
+    void set_translation(glm::vec3 position);
+    void set_rotation(glm::vec3 rotation);
+    void set_scale(float scale);
 
 private:
     void destroy_buffer(AllocatedBuffer& buffer);

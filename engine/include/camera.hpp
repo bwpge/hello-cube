@@ -43,10 +43,10 @@ public:
     glm::mat4 get_projection() const;
     [[nodiscard]]
     glm::vec3 get_position() const;
+
     void set_aspect(float aspect);
     void set_position(glm::vec3 pos);
-
-    // camera control
+    void set_sprint(bool on);
 
     inline void reset() {
         _pos = _start;
@@ -72,6 +72,7 @@ private:
     float _near_z{0.1f};
     float _far_z{200.f};
 
+    bool _sprint{};
     float _speed{5.f};
     float _rotation_speed{7.5f};
     float _zoom_speed{5.f};

@@ -22,6 +22,10 @@ void Camera::set_position(glm::vec3 pos) {
     _pos = pos;
 }
 
+void Camera::set_sprint(bool on) {
+    _sprint = on;
+}
+
 void Camera::rotate(double dx, double dy, double dt) {
     auto amount = _rotation_speed * static_cast<float>(dt);
     _yaw += static_cast<float>(dx) * amount;
@@ -49,6 +53,10 @@ void Camera::rotate(double dx, double dy, double dt) {
 
 void Camera::move(CameraDirection direction, double dt) {
     auto amount = _speed * static_cast<float>(dt);
+    if (_sprint) {
+        amount *= 4.0f;
+    }
+
     switch (direction) {
         case CameraDirection::Forward:
             _pos += amount * _front;

@@ -62,6 +62,18 @@ void Mesh::destroy() {
     destroy_buffer(_index_buffer);
 }
 
+void Mesh::set_scale(float scale) {
+    _transform.scale = glm::vec3{scale};
+}
+
+void Mesh::set_rotation(glm::vec3 rotation) {
+    _transform.rotation = rotation;
+}
+
+void Mesh::set_translation(glm::vec3 position) {
+    _transform.translation = position;
+}
+
 void Mesh::destroy_buffer(AllocatedBuffer& buf) {
     if (buf.buffer || buf.allocation) {
         spdlog::trace(
