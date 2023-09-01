@@ -197,7 +197,11 @@ void Engine::render() {
     _cmd_buffer->reset();
     _cmd_buffer->begin(vk::CommandBufferBeginInfo{
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-    vk::ClearValue clear{vk::ClearColorValue{0.0f, 0.0f, 0.2f, 1.0f}};
+
+    vk::ClearValue color_clear{vk::ClearColorValue{0.0f, 0.0f, 0.2f, 1.0f}};
+    vk::ClearValue depth_clear{vk::ClearDepthStencilValue{1.0f}};
+    std::vector<vk::ClearValue> clear{color_clear, depth_clear};
+
     vk::RenderPassBeginInfo rpinfo{
         _render_pass.get(),
         _framebuffers[idx].get(),
@@ -255,6 +259,8 @@ void Engine::cleanup() {
 
     // vulkan resource cleanup is handled by vulkan-hpp,
     // destructors are called in reverse order of declaration
+
+    _depth_buffer.destroy();
 
     spdlog::trace("Destroying meshes");
     for (auto& mesh : _meshes) {
@@ -497,12 +503,18 @@ void Engine::create_device() {
     vk::PhysicalDeviceSynchronization2Features pdsf{};
     pdsf.setSynchronization2(VK_TRUE);
 
+    // https://vulkan.lunarg.com/doc/view/1.3.250.1/windows/1.3-extensions/vkspec.html#VUID-VkAttachmentReference2-separateDepthStencilLayouts-03313
+    // need to enable to use VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL in depth
+    // attachment for render subpass
+    vk::PhysicalDeviceVulkan12Features pdv12f{};
+    pdv12f.setSeparateDepthStencilLayouts(VK_TRUE).setPNext(&pdsf);
+
     vk::DeviceCreateInfo dci{};
     auto extensions = std::vector{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     dci.setQueueCreateInfos(infos)
         .setPEnabledFeatures(&features)
         .setPEnabledExtensionNames(extensions)
-        .setPNext(&pdsf);
+        .setPNext(&pdv12f);
 
     _device = _gpu.createDeviceUnique(dci);
     _graphics_queue = _device->getQueue(_queue_family.graphics, 0);
@@ -571,6 +583,9 @@ void Engine::create_swapchain() {
             .setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
         _swapchain_image_views.push_back(_device->createImageViewUnique(ivci));
     }
+
+    _depth_buffer.destroy();
+    _depth_buffer = DepthBuffer{_allocator, _device.get(), _swapchain_extent};
 }
 
 void Engine::load_meshes() {
@@ -605,7 +620,7 @@ void Engine::init_commands() {
 void Engine::init_renderpass() {
     spdlog::trace("Initializing renderpass");
 
-    vk::AttachmentDescription color_ad{
+    vk::AttachmentDescription color_attach{
         {},
         _swapchain_format,
         vk::SampleCountFlagBits::e1,
@@ -616,17 +631,59 @@ void Engine::init_renderpass() {
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::ePresentSrcKHR,
     };
-    vk::AttachmentReference color_ar{0, vk::ImageLayout::eAttachmentOptimal};
+    vk::AttachmentReference color_attach_ref{
+        0, vk::ImageLayout::eAttachmentOptimal};
+
+    vk::AttachmentDescription depth_attach{
+        {},
+        _depth_buffer.format(),
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eLoad,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+    };
+    vk::AttachmentReference depth_attach_ref{
+        1,
+        vk::ImageLayout::eDepthAttachmentOptimal,
+    };
+
     vk::SubpassDescription subpass{};
     subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-        .setPColorAttachments(&color_ar)
-        .setColorAttachmentCount(1);
+        .setColorAttachments(color_attach_ref)
+        .setPDepthStencilAttachment(&depth_attach_ref);
 
+    vk::SubpassDependency color_dep{};
+    color_dep.setSrcSubpass(VK_SUBPASS_EXTERNAL)
+        .setDstSubpass(0)
+        .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+        .setSrcAccessMask(vk::AccessFlagBits::eNone)
+        .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+        .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+
+    vk::SubpassDependency depth_dep{};
+    depth_dep.setSrcSubpass(VK_SUBPASS_EXTERNAL)
+        .setDstSubpass(0)
+        .setSrcStageMask(
+            vk::PipelineStageFlagBits::eEarlyFragmentTests |
+            vk::PipelineStageFlagBits::eLateFragmentTests
+        )
+        .setSrcAccessMask(vk::AccessFlagBits::eNone)
+        .setDstStageMask(
+            vk::PipelineStageFlagBits::eEarlyFragmentTests |
+            vk::PipelineStageFlagBits::eLateFragmentTests
+        )
+        .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+
+    std::vector<vk::SubpassDependency> dependencies{color_dep, depth_dep};
+    std::vector<vk::AttachmentDescription> attachments{
+        color_attach, depth_attach};
     vk::RenderPassCreateInfo rpci{};
-    rpci.setPAttachments(&color_ad)
-        .setAttachmentCount(1)
-        .setPSubpasses(&subpass)
-        .setSubpassCount(1);
+    rpci.setAttachments(attachments)
+        .setSubpasses(subpass)
+        .setDependencies(dependencies);
 
     _render_pass = _device->createRenderPassUnique(rpci);
 }
@@ -636,7 +693,8 @@ void Engine::create_framebuffers() {
 
     _framebuffers.clear();
     for (const auto& iv : _swapchain_image_views) {
-        auto attachments = std::vector<vk::ImageView>{iv.get()};
+        auto attachments =
+            std::vector<vk::ImageView>{iv.get(), _depth_buffer.image_view()};
 
         vk::FramebufferCreateInfo info{};
         info.setRenderPass(_render_pass.get())
@@ -681,6 +739,7 @@ void Engine::create_pipelines() {
             )
             .set_extent(_swapchain_extent)
             .set_cull_mode(vk::CullModeFlagBits::eBack)
+            .set_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             .new_pipeline()
             .add_vertex_shader(
                 _shaders.vertex["mesh"].shader_module(_device.get())

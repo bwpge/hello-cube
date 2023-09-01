@@ -14,6 +14,7 @@
 #include "camera.hpp"
 #include "core.hpp"
 #include "debug_utils.hpp"
+#include "depth_buffer.hpp"
 #include "shader.hpp"
 #include "timer.hpp"
 #include "mesh.hpp"
@@ -104,6 +105,7 @@ private:
     vk::UniqueSwapchainKHR _swapchain{};
     std::vector<vk::Image> _swapchain_images{};
     std::vector<vk::UniqueImageView> _swapchain_image_views{};
+    DepthBuffer _depth_buffer{};
     vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
     vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};
     std::vector<Mesh> _meshes{};

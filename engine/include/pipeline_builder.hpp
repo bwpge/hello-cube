@@ -20,6 +20,7 @@ struct PipelineConfig {
     vk::Extent2D extent{};
     vk::PolygonMode polygon_mode{vk::PolygonMode::eFill};
     vk::FrontFace front_face{vk::FrontFace::eClockwise};
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil{};
 };
 
 class PipelineBuilder {
@@ -33,6 +34,7 @@ public:
     PipelineBuilder& set_cull_mode(vk::CullModeFlagBits mode);
     PipelineBuilder& set_polygon_mode(vk::PolygonMode mode);
     PipelineBuilder& set_push_constant(vk::PushConstantRange push_constant);
+    PipelineBuilder& set_depth_stencil(bool test, bool write, vk::CompareOp op);
 
     [[nodiscard]]
     GraphicsPipeline build(

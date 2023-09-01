@@ -74,6 +74,22 @@ PipelineBuilder& PipelineBuilder::set_push_constant(
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::set_depth_stencil(
+    bool test,
+    bool write,
+    vk::CompareOp op
+) {
+    vk::PipelineDepthStencilStateCreateInfo info = {};
+    info.setDepthTestEnable(test ? VK_TRUE : VK_FALSE)
+        .setDepthWriteEnable(write ? VK_TRUE : VK_FALSE)
+        .setDepthCompareOp(test ? op : vk::CompareOp::eAlways)
+        .setDepthBoundsTestEnable(VK_FALSE)
+        .setStencilTestEnable(VK_FALSE);
+
+    _config[_idx].depth_stencil = info;
+    return *this;
+}
+
 [[nodiscard]]
 GraphicsPipeline PipelineBuilder::build(
     const vk::Device& device,
@@ -152,8 +168,10 @@ GraphicsPipeline PipelineBuilder::build(
             .setPRasterizationState(&_rasterizers[i])
             .setPMultisampleState(&multisampling)
             .setPColorBlendState(&color_blend)
+            .setPDepthStencilState(&_config[i].depth_stencil)
             .setLayout(layout.get())
             .setRenderPass(render_pass);
+
         pipeline_infos.push_back(info);
     }
 
