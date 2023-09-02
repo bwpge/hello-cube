@@ -7,16 +7,6 @@ Mesh& Scene::add_mesh(Mesh&& mesh) {
     return _meshes.back();
 }
 
-void Scene::draw(const vk::UniqueCommandBuffer& cmd) const {
-    draw(cmd.get());
-}
-
-void Scene::draw(const vk::CommandBuffer& cmd) const {
-    for (const auto& mesh : _meshes) {
-        mesh.draw(cmd);
-    }
-}
-
 void Scene::destroy() {
     for (auto& mesh : _meshes) {
         mesh.destroy();

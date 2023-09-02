@@ -8,8 +8,6 @@ namespace hc {
 class Scene {
 public:
     Mesh& add_mesh(Mesh&& mesh);
-    void draw(const vk::UniqueCommandBuffer& cmd) const;
-    void draw(const vk::CommandBuffer& cmd) const;
     void destroy();
 
     [[nodiscard]]
