@@ -55,7 +55,7 @@ public:
     void cycle_pipeline();
     void on_resize();
     void on_focus(bool focused);
-    void on_mouse_move(glm::dvec2 pos, double dt);
+    void on_mouse_move(glm::dvec2 pos);
     void on_scroll(double dx, double dy);
     void on_key_press(i32 keycode);
 

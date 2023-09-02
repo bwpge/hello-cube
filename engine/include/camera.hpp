@@ -56,7 +56,7 @@ public:
         _front = {0.f, 0.f, -1.f};
     }
 
-    void rotate(double dx, double dy, double dt);
+    void rotate(double dx, double dy);
     void move(CameraDirection direction, double dt);
     void zoom(ZoomDirection direction, double dt);
 
@@ -66,7 +66,7 @@ private:
     glm::vec3 _front{0.f, 0.f, -1.f};
     glm::vec3 _up{0.f, -1.f, 0.f};  // vulkan +y-axis is down
     float _pitch{};
-    float _yaw{-180.f};  // start at -90 to look at origin
+    float _yaw{-180.f};  // start at -180 to look at origin
     float _fov{45.f};
     float _aspect{1.78f};  // 16:9
     float _near_z{0.1f};
@@ -74,7 +74,7 @@ private:
 
     bool _sprint{};
     float _speed{5.f};
-    float _rotation_speed{7.5f};
+    float _rotation_speed{0.05f};
     float _zoom_speed{5.f};
 };
 

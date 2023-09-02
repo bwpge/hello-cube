@@ -174,7 +174,7 @@ void Engine::update(double dt) {
     glm::dvec2 pos{};
     glfwGetCursorPos(_window, &pos.x, &pos.y);
     if (pos != _cursor) {
-        on_mouse_move(pos, dt);
+        on_mouse_move(pos);
     }
 }
 
@@ -326,7 +326,7 @@ void Engine::on_focus(bool focused) {
     _focused = focused;
 }
 
-void Engine::on_mouse_move(glm::dvec2 pos, double dt) {
+void Engine::on_mouse_move(glm::dvec2 pos) {
     if (!_is_init || !_focused) {
         return;
     }
@@ -334,7 +334,7 @@ void Engine::on_mouse_move(glm::dvec2 pos, double dt) {
     auto dx = pos.x - _cursor.x;
     auto dy = pos.y - _cursor.y;
     _cursor = pos;
-    _camera.rotate(dx, dy, dt);
+    _camera.rotate(dx, dy);
 }
 
 float Engine::aspect_ratio() const noexcept {

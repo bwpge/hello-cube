@@ -26,16 +26,16 @@ void Camera::set_sprint(bool on) {
     _sprint = on;
 }
 
-void Camera::rotate(double dx, double dy, double dt) {
-    auto amount = _rotation_speed * static_cast<float>(dt);
-    _yaw += static_cast<float>(dx) * amount;
+void Camera::rotate(double dx, double dy) {
+    auto up_sign = (_up[1] > 0.0f ? -1.0f : 1.0f);
+    _yaw += up_sign * static_cast<float>(dx) * _rotation_speed;
     if (_yaw < -180.f) {
         _yaw += 360.f;
     }
     if (_yaw > 180.f) {
         _yaw -= 360.f;
     }
-    _pitch += static_cast<float>(dy) * amount;
+    _pitch += up_sign * static_cast<float>(dy) * _rotation_speed;
     _pitch = std::clamp(_pitch, -85.f, 85.f);
 
     auto rotation =
