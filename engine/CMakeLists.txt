@@ -13,6 +13,7 @@ set(HCENGINE_HEADER_FILES
     "include/engine.hpp"
     "include/hello_cube.hpp"
     "include/pipeline_builder.hpp"
+    "include/scene.hpp"
     "include/shader.hpp"
     "include/timer.hpp"
     "include/types.hpp"
@@ -29,6 +30,7 @@ set(HCENGINE_SRC_FILES
     "src/logger.cpp"
     "src/mesh.cpp"
     "src/pipeline_builder.cpp"
+    "src/scene.cpp"
     "src/shader.cpp"
     "src/timer.cpp"
 )

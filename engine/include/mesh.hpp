@@ -85,59 +85,115 @@ public:
         return mesh;
     }
 
-    static Mesh cube(VmaAllocator allocator, glm::vec3 color) {
+    static Mesh cube(
+        VmaAllocator allocator,
+        float size = 1.0f,
+        glm::vec3 color = {1.0f, 0.0f, 1.0f}
+    ) {
         auto mesh = Mesh{allocator};
+        const auto s = size / 2;
 
-        // TODO(bwpge): fix cube normals
         mesh._vertices = {
             // -X side
-            {{-0.5f, -0.5f, -0.5f}, {}, color},
-            {{-0.5f, -0.5f, 0.5f}, {}, color},
-            {{-0.5f, 0.5f, 0.5f}, {}, color},
-            {{-0.5f, 0.5f, 0.5f}, {}, color},
-            {{-0.5f, 0.5f, -0.5f}, {}, color},
-            {{-0.5f, -0.5f, -0.5f}, {}, color},
+            {{-s, -s, -s}, {-1.0f, 0.0f, 0.0f}, color},
+            {{-s, -s, s}, {-1.0f, 0.0f, 0.0f}, color},
+            {{-s, s, s}, {-1.0f, 0.0f, 0.0f}, color},
+            {{-s, s, s}, {-1.0f, 0.0f, 0.0f}, color},
+            {{-s, s, -s}, {-1.0f, 0.0f, 0.0f}, color},
+            {{-s, -s, -s}, {-1.0f, 0.0f, 0.0f}, color},
 
             // -Z side
-            {{-0.5f, -0.5f, -0.5f}, {}, color},
-            {{0.5f, 0.5f, -0.5f}, {}, color},
-            {{0.5f, -0.5f, -0.5f}, {}, color},
-            {{-0.5f, -0.5f, -0.5f}, {}, color},
-            {{-0.5f, 0.5f, -0.5f}, {}, color},
-            {{0.5f, 0.5f, -0.5f}, {}, color},
+            {{-s, -s, -s}, {0.0f, 0.0f, -1.0f}, color},
+            {{s, s, -s}, {0.0f, 0.0f, -1.0f}, color},
+            {{s, -s, -s}, {0.0f, 0.0f, -1.0f}, color},
+            {{-s, -s, -s}, {0.0f, 0.0f, -1.0f}, color},
+            {{-s, s, -s}, {0.0f, 0.0f, -1.0f}, color},
+            {{s, s, -s}, {0.0f, 0.0f, -1.0f}, color},
 
             // -Y side
-            {{-0.5f, -0.5f, -0.5f}, {}, color},
-            {{0.5f, -0.5f, -0.5f}, {}, color},
-            {{0.5f, -0.5f, 0.5f}, {}, color},
-            {{-0.5f, -0.5f, -0.5f}, {}, color},
-            {{0.5f, -0.5f, 0.5f}, {}, color},
-            {{-0.5f, -0.5f, 0.5f}, {}, color},
+            {{-s, -s, -s}, {0.0f, -1.0, 0.0f}, color},
+            {{s, -s, -s}, {0.0f, -1.0, 0.0f}, color},
+            {{s, -s, s}, {0.0f, -1.0, 0.0f}, color},
+            {{-s, -s, -s}, {0.0f, -1.0, 0.0f}, color},
+            {{s, -s, s}, {0.0f, -1.0, 0.0f}, color},
+            {{-s, -s, s}, {0.0f, -1.0, 0.0f}, color},
 
             // +Y side
-            {{-0.5f, 0.5f, -0.5f}, {}, color},
-            {{-0.5f, 0.5f, 0.5f}, {}, color},
-            {{0.5f, 0.5f, 0.5f}, {}, color},
-            {{-0.5f, 0.5f, -0.5f}, {}, color},
-            {{0.5f, 0.5f, 0.5f}, {}, color},
-            {{0.5f, 0.5f, -0.5f}, {}, color},
+            {{-s, s, -s}, {0.0f, 1.0f, 0.0f}, color},
+            {{-s, s, s}, {0.0f, 1.0f, 0.0f}, color},
+            {{s, s, s}, {0.0f, 1.0f, 0.0f}, color},
+            {{-s, s, -s}, {0.0f, 1.0f, 0.0f}, color},
+            {{s, s, s}, {0.0f, 1.0f, 0.0f}, color},
+            {{s, s, -s}, {0.0f, 1.0f, 0.0f}, color},
 
             // +X side
-            {{0.5f, 0.5f, -0.5f}, {}, color},
-            {{0.5f, 0.5f, 0.5f}, {}, color},
-            {{0.5f, -0.5f, 0.5f}, {}, color},
-            {{0.5f, -0.5f, 0.5f}, {}, color},
-            {{0.5f, -0.5f, -0.5f}, {}, color},
-            {{0.5f, 0.5f, -0.5f}, {}, color},
+            {{s, s, -s}, {1.0f, 0.0f, 0.0f}, color},
+            {{s, s, s}, {1.0f, 0.0f, 0.0f}, color},
+            {{s, -s, s}, {1.0f, 0.0f, 0.0f}, color},
+            {{s, -s, s}, {1.0f, 0.0f, 0.0f}, color},
+            {{s, -s, -s}, {1.0f, 0.0f, 0.0f}, color},
+            {{s, s, -s}, {1.0f, 0.0f, 0.0f}, color},
 
             // +Z side
-            {{-0.5f, 0.5f, 0.5f}, {}, color},
-            {{-0.5f, -0.5f, 0.5f}, {}, color},
-            {{0.5f, 0.5f, 0.5f}, {}, color},
-            {{-0.5f, -0.5f, 0.5f}, {}, color},
-            {{0.5f, -0.5f, 0.5f}, {}, color},
-            {{0.5f, 0.5f, 0.5f}, {}, color},
+            {{-s, s, s}, {0.0f, 0.0f, 1.0f}, color},
+            {{-s, -s, s}, {0.0f, 0.0f, 1.0f}, color},
+            {{s, s, s}, {0.0f, 0.0f, 1.0f}, color},
+            {{-s, -s, s}, {0.0f, 0.0f, 1.0f}, color},
+            {{s, -s, s}, {0.0f, 0.0f, 1.0f}, color},
+            {{s, s, s}, {0.0f, 0.0f, 1.0f}, color},
         };
+        return mesh;
+    }
+
+    // implementation adapted from http://www.songho.ca/opengl/gl_sphere.html
+    static Mesh sphere(
+        VmaAllocator allocator,
+        float radius,
+        glm::vec3 color,
+        u32 sectors,
+        u32 stacks
+    ) {
+        auto mesh = Mesh{allocator};
+
+        float d_sector = glm::two_pi<float>() / static_cast<float>(sectors);
+        float d_step = glm::pi<float>() / static_cast<float>(stacks);
+        for (u32 i = 0; i <= stacks; ++i) {
+            auto stack_angle =
+                glm::half_pi<float>() - static_cast<float>(i) * d_step;
+            auto xy = radius * glm::cos(stack_angle);
+            auto z = radius * glm::sin(stack_angle);
+
+            for (u32 j = 0; j <= sectors; ++j) {
+                auto sector_angle = static_cast<float>(j) * d_sector;
+
+                auto x = xy * glm::cos(sector_angle);
+                auto y = xy * glm::sin(sector_angle);
+
+                auto pos = glm::vec3{x, y, z};
+                auto normal = glm::normalize(pos);
+                mesh._vertices.emplace_back(pos, normal, color);
+            }
+        }
+
+        for (u32 i = 0; i < stacks; ++i) {
+            auto k1 = i * (sectors + 1);
+            auto k2 = k1 + sectors + 1;
+
+            for (u32 j = 0; j < sectors; ++j, ++k1, ++k2) {
+                if (i != 0) {
+                    mesh._indices.push_back(k1);
+                    mesh._indices.push_back(k2);
+                    mesh._indices.push_back(k1 + 1);
+                }
+
+                if (i != (stacks - 1)) {
+                    mesh._indices.push_back(k1 + 1);
+                    mesh._indices.push_back(k2);
+                    mesh._indices.push_back(k2 + 1);
+                }
+            }
+        }
+
         return mesh;
     }
 

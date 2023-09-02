@@ -17,7 +17,7 @@
 #include "depth_buffer.hpp"
 #include "shader.hpp"
 #include "timer.hpp"
-#include "mesh.hpp"
+#include "scene.hpp"
 #include "pipeline_builder.hpp"
 
 struct GLFWwindow;
@@ -65,7 +65,7 @@ private:
     void init_vulkan();
     void init_allocator();
     void create_swapchain();
-    void load_meshes();
+    void create_scene();
     void init_commands();
     void init_renderpass();
     void create_framebuffers();
@@ -90,6 +90,7 @@ private:
     Timer _timer{};
     Camera _camera{};
     glm::dvec2 _cursor{};
+    Scene _scene{};
 
     vk::UniqueInstance _instance{};
     vk::UniqueDebugUtilsMessengerEXT _messenger{};
@@ -108,7 +109,6 @@ private:
     DepthBuffer _depth_buffer{};
     vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
     vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};
-    std::vector<Mesh> _meshes{};
     vk::UniqueCommandPool _cmd_pool{};
     vk::UniqueCommandBuffer _cmd_buffer{};
     vk::UniqueRenderPass _render_pass{};

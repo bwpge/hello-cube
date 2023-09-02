@@ -224,7 +224,7 @@ void Engine::render() {
     auto proj = _camera.get_projection();
     auto view = _camera.get_view();
 
-    for (const auto& mesh : _meshes) {
+    for (const auto& mesh : _scene.meshes()) {
         auto model = mesh.get_transform();
         auto constants = PushConstants{proj, view, model};
 
@@ -268,10 +268,9 @@ void Engine::cleanup() {
 
     _depth_buffer.destroy();
 
-    spdlog::trace("Destroying meshes");
-    for (auto& mesh : _meshes) {
-        mesh.destroy();
-    }
+    spdlog::trace("Destroying scene");
+    _scene.destroy();
+
     spdlog::trace("Destroying allocator");
     vmaDestroyAllocator(_allocator);
 
@@ -353,7 +352,7 @@ void Engine::init_vulkan() {
     init_commands();
     load_shaders();
     create_swapchain();
-    load_meshes();
+    create_scene();
     init_renderpass();
     create_framebuffers();
     init_sync_obj();
@@ -594,11 +593,36 @@ void Engine::create_swapchain() {
     _depth_buffer = DepthBuffer{_allocator, _device.get(), _swapchain_extent};
 }
 
-void Engine::load_meshes() {
-    _meshes.emplace_back(
-        Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj")
-    );
-    for (auto& mesh : _meshes) {
+void Engine::create_scene() {
+    {
+        auto& mesh = _scene.add_mesh(
+            Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj")
+        );
+        mesh.set_translation({0.0f, 3.0f, -3.0f});
+    }
+
+    const i32 count = 20;
+    for (i32 i = -count; i <= count; i++) {
+        for (i32 j = -count; j <= count; j++) {
+            auto x = static_cast<float>(2 * i);
+            auto y = std::abs(i + j) % 2 == 0 ? -0.25f : 0.25f;
+            auto z = static_cast<float>(2 * j);
+            auto r = static_cast<float>(std::abs(count + i)) / (2 * count);
+            auto g = static_cast<float>(std::abs(count + j)) / (2 * count);
+            auto color = glm::vec3{r, g, 1.0f};
+
+            auto& mesh =
+                std::abs(j) % 2 == 1
+                    ? _scene.add_mesh(
+                          Mesh::sphere(_allocator, 0.4f, color, 36, 20)
+                      )
+                    : _scene.add_mesh(Mesh::cube(_allocator, 0.5f, color));
+            mesh.set_translation({x, y, z});
+            mesh.set_rotation({x, 0.0f, z});
+        }
+    }
+
+    for (auto& mesh : _scene.meshes()) {
         mesh.upload();
     }
 }
