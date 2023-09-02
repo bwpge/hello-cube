@@ -160,18 +160,24 @@ void Engine::update(double dt) {
 }
 
 void Engine::render() {
-    if (_device->waitForFences(_render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
+    // aliases to make code below a bit more readable
+    auto& frame = _frames[_frame_idx];
+    auto& cmd = frame.cmd;
+    const auto& render_fence = frame.render_fence;
+    const auto& render_semaphore = frame.render_semaphore;
+    const auto& present_semaphore = frame.present_semaphore;
+
+    if (_device->waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
         vk::Result::eSuccess) {
         PANIC("Failed to wait for render fence");
     }
 
     auto res = _device->acquireNextImageKHR(
-        _swapchain.handle.get(), SYNC_TIMEOUT, _present_semaphore.get(), nullptr
+        _swapchain.handle.get(), SYNC_TIMEOUT, present_semaphore.get(), nullptr
     );
     if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
         res.result == vk::Result::eSuboptimalKHR) {
         spdlog::debug("Window resized, re-creating swapchain");
-        _resized = false;
         recreate_swapchain();
         return;
     }
@@ -179,10 +185,10 @@ void Engine::render() {
         PANIC("Failed to acquire next swapchain image");
     }
     u32 idx = res.value;
-    _device->resetFences(_render_fence.get());
+    _device->resetFences(render_fence.get());
 
-    _cmd_buffer->reset();
-    _cmd_buffer->begin(vk::CommandBufferBeginInfo{
+    cmd->reset();
+    cmd->begin(vk::CommandBufferBeginInfo{
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     vk::ClearValue color_clear{vk::ClearColorValue{0.0f, 0.0f, 0.2f, 1.0f}};
@@ -196,8 +202,8 @@ void Engine::render() {
         clear,
     };
 
-    _cmd_buffer->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
-    _cmd_buffer->bindPipeline(
+    cmd->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
+    cmd->bindPipeline(
         vk::PipelineBindPoint::eGraphics,
         _gfx_pipelines.pipelines[_pipeline_idx].get()
     );
@@ -209,37 +215,38 @@ void Engine::render() {
     for (const auto& mesh : _scene.meshes()) {
         constants.model = mesh.transform();
 
-        _cmd_buffer->pushConstants(
+        cmd->pushConstants(
             _gfx_pipelines.layout.get(),
             vk::ShaderStageFlagBits::eVertex,
             0,
             sizeof(PushConstants),
             &constants
         );
-        mesh.bind(_cmd_buffer.get());
-        mesh.draw(_cmd_buffer);
+        mesh.bind(cmd.get());
+        mesh.draw(cmd);
     }
 
-    _cmd_buffer->endRenderPass();
-    _cmd_buffer->end();
+    cmd->endRenderPass();
+    cmd->end();
 
     vk::PipelineStageFlags mask =
         vk::PipelineStageFlagBits::eColorAttachmentOutput;
     vk::SubmitInfo submit{
-        _present_semaphore.get(),
+        present_semaphore.get(),
         mask,
-        _cmd_buffer.get(),
-        _render_semaphore.get(),
+        cmd.get(),
+        render_semaphore.get(),
     };
-    _graphics_queue.submit(submit, _render_fence.get());
+    _graphics_queue.submit(submit, render_fence.get());
 
     vk::PresentInfoKHR present{
-        _render_semaphore.get(), _swapchain.handle.get(), idx};
+        render_semaphore.get(), _swapchain.handle.get(), idx};
     if (_graphics_queue.presentKHR(present) != vk::Result::eSuccess) {
         PANIC("Failed to present swapchain frame");
     }
 
-    _frame_number++;
+    _frame_count++;
+    _frame_idx = _frame_count % _max_frames_in_flight;
 }
 
 void Engine::cleanup() {
@@ -356,9 +363,12 @@ void Engine::on_mouse_move(glm::dvec2 pos) {
 }
 
 float Engine::aspect_ratio() const noexcept {
-    return _window.height == 0 ? 0.f
-                               : static_cast<float>(_window.width) /
-                                     static_cast<float>(_window.height);
+    if (_window.height == 0) {
+        return 0.0f;
+    }
+
+    return static_cast<float>(_swapchain.extent.width) /
+           static_cast<float>(_swapchain.extent.height);
 }
 
 void Engine::init_glfw() {
@@ -415,7 +425,7 @@ void Engine::init_vulkan() {
     create_scene();
     init_renderpass();
     create_framebuffers();
-    init_sync_obj();
+    create_sync_obj();
     create_pipelines();
 }
 
@@ -607,7 +617,7 @@ void Engine::create_swapchain() {
         get_surface_extent(_gpu, _surface.get(), _window.handle);
     _swapchain.format = vk::Format::eB8G8R8A8Unorm;
     auto color = vk::ColorSpaceKHR::eSrgbNonlinear;
-    auto mode = vk::PresentModeKHR::eFifo;
+    auto mode = vk::PresentModeKHR::eMailbox;
 
     u32 img_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 &&
@@ -693,21 +703,23 @@ void Engine::create_scene() {
 void Engine::init_commands() {
     spdlog::trace("Initializing command buffers");
 
-    vk::CommandPoolCreateInfo cpci{
-        vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-        _queue_family.graphics,
-    };
-    _cmd_pool = _device->createCommandPoolUnique(cpci);
+    for (auto& frame : _frames) {
+        vk::CommandPoolCreateInfo cpci{
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            _queue_family.graphics,
+        };
+        frame.cmd_pool = _device->createCommandPoolUnique(cpci);
 
-    vk::CommandBufferAllocateInfo cbai{};
-    cbai.setCommandPool(_cmd_pool.get())
-        .setCommandBufferCount(1)
-        .setLevel(vk::CommandBufferLevel::ePrimary);
-    auto buffers = _device->allocateCommandBuffersUnique(cbai);
-    if (buffers.empty()) {
-        PANIC("Failed to create command buffer");
+        vk::CommandBufferAllocateInfo cbai{};
+        cbai.setCommandPool(frame.cmd_pool.get())
+            .setCommandBufferCount(1)
+            .setLevel(vk::CommandBufferLevel::ePrimary);
+        auto buffers = _device->allocateCommandBuffersUnique(cbai);
+        if (buffers.empty()) {
+            PANIC("Failed to create command buffer");
+        }
+        frame.cmd = std::move(buffers[0]);
     }
-    _cmd_buffer = std::move(buffers[0]);
 }
 
 void Engine::init_renderpass() {
@@ -800,15 +812,15 @@ void Engine::create_framebuffers() {
     }
 }
 
-void Engine::init_sync_obj() {
+void Engine::create_sync_obj() {
     spdlog::trace("Creating synchronization structures");
 
-    _render_fence = _device->createFenceUnique(vk::FenceCreateInfo{
-        vk::FenceCreateFlagBits::eSignaled});
-
-    auto info = vk::SemaphoreCreateInfo{};
-    _present_semaphore = _device->createSemaphoreUnique(info);
-    _render_semaphore = _device->createSemaphoreUnique(info);
+    for (auto& frame : _frames) {
+        frame.render_fence = _device->createFenceUnique(vk::FenceCreateInfo{
+            vk::FenceCreateFlagBits::eSignaled});
+        frame.present_semaphore = _device->createSemaphoreUnique({});
+        frame.render_semaphore = _device->createSemaphoreUnique({});
+    }
 }
 
 void Engine::create_pipelines() {
@@ -847,18 +859,7 @@ void Engine::create_pipelines() {
 }
 
 void Engine::recreate_swapchain() {
-    // see:
-    //   - https://stackoverflow.com/questions/59825832
-    //   - https://github.com/KhronosGroup/Vulkan-Docs/issues/1059
-    _device->resetFences(_render_fence.get());
-    vk::PipelineStageFlags mask = vk::PipelineStageFlagBits::eBottomOfPipe;
-    vk::SubmitInfo info{};
-    info.setWaitSemaphores(_present_semaphore.get());
-    info.setWaitDstStageMask(mask);
-    _graphics_queue.submit(info, _render_fence.get());
-    _graphics_queue.waitIdle();
-
-    _device->waitIdle();
+    _resized = false;
 
     // HACK: spin lock minimized state
     // this doesn't allow anything else in the application to execute
@@ -870,12 +871,26 @@ void Engine::recreate_swapchain() {
         glfwPollEvents();
     }
 
-    _camera.set_aspect(aspect_ratio());
+    // when re-creating the swapchain, we might have frames being presented
+    // or commands still being executed. device->waitIdle is a bit of a brute
+    // force solution (it will wait on every queue owned by the device to be
+    // idle), but this guarantees we can re-create sync objects without having
+    // to worry about what is still in use. re-creating them is much easier
+    // than trying to reuse them, and this is not critical path code.
+    //
+    // for background info, see:
+    //   - https://stackoverflow.com/questions/59825832
+    //   - https://stackoverflow.com/questions/70762372
+    //   - https://github.com/KhronosGroup/Vulkan-Docs/issues/1059
+    _device->waitIdle();
 
     destroy_swapchain();
     create_swapchain();
     create_framebuffers();
+    create_sync_obj();
     create_pipelines();
+
+    _camera.set_aspect(aspect_ratio());
 }
 
 void Engine::destroy_swapchain() {

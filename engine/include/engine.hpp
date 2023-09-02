@@ -41,6 +41,20 @@ struct SwapchainData {
     std::vector<vk::UniqueImageView> image_views{};
 };
 
+enum class BufferingMode : usize {
+    None = 1u,
+    Double,
+    Triple,
+};
+
+struct FrameData {
+    vk::UniqueSemaphore present_semaphore{};
+    vk::UniqueSemaphore render_semaphore{};
+    vk::UniqueFence render_fence{};
+    vk::UniqueCommandPool cmd_pool{};
+    vk::UniqueCommandBuffer cmd{};
+};
+
 struct QueueFamily {
     u32 graphics;
     u32 present;
@@ -61,10 +75,17 @@ struct WindowData {
 class Engine {
 public:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    explicit Engine(std::string_view title, i32 width, i32 height)
-        : _window{std::string{title}, width, height} {}
+    explicit Engine(
+        std::string_view title,
+        i32 width,
+        i32 height,
+        BufferingMode buffering = BufferingMode::None
+    )
+        : _max_frames_in_flight(static_cast<usize>(buffering)),
+          _window{std::string{title}, width, height},
+          _frames{_max_frames_in_flight} {}
 
-    Engine() = default;
+    Engine() = delete;
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
     Engine(Engine&&) = delete;
@@ -88,6 +109,7 @@ public:
 private:
     [[nodiscard]]
     float aspect_ratio() const noexcept;
+
     void init_glfw();
     void init_vulkan();
     void init_allocator();
@@ -97,7 +119,7 @@ private:
     void init_renderpass();
     void create_framebuffers();
     void create_pipelines();
-    void init_sync_obj();
+    void create_sync_obj();
     void create_instance();
     void create_surface();
     void create_device();
@@ -108,7 +130,9 @@ private:
     bool _is_init{};
     bool _focused{};
     bool _resized{};
-    usize _frame_number{};
+    usize _frame_count{};
+    usize _frame_idx{};
+    usize _max_frames_in_flight{2};
     WindowData _window{};
     Timer _timer{};
     Camera _camera{};
@@ -128,12 +152,9 @@ private:
     DepthBuffer _depth_buffer{};
     vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
     vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};
-    vk::UniqueCommandPool _cmd_pool{};
-    vk::UniqueCommandBuffer _cmd_buffer{};
+    std::vector<FrameData> _frames{};
     vk::UniqueRenderPass _render_pass{};
     std::vector<vk::UniqueFramebuffer> _framebuffers{};
-    vk::UniqueSemaphore _present_semaphore{}, _render_semaphore{};
-    vk::UniqueFence _render_fence{};
     usize _pipeline_idx{};
     GraphicsPipeline _gfx_pipelines{};
 };
