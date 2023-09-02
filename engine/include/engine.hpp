@@ -31,21 +31,38 @@ struct PushConstants {
     glm::vec3 light_pos{};
 };
 
+struct SwapchainData {
+    vk::Format format{};
+    vk::Extent2D extent{};
+    vk::UniqueSwapchainKHR handle{};
+    std::vector<vk::Image> images{};
+    std::vector<vk::UniqueImageView> image_views{};
+};
+
 struct QueueFamily {
     u32 graphics;
     u32 present;
+};
+
+struct WindowData {
+    std::string title{};
+    i32 width{1600};
+    i32 height{800};
+    GLFWwindow* handle{nullptr};
 };
 
 class Engine {
 public:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     explicit Engine(std::string_view title, i32 width, i32 height)
-        : _title{title},
-          _width{width},
-          _height{height} {}
+        : _window{std::string{title}, width, height} {}
 
+    Engine() = default;
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
+    Engine(Engine&&) = delete;
+    Engine& operator=(Engine&&) = delete;
+    ~Engine() = default;
 
     void init();
     void run();
@@ -78,16 +95,12 @@ private:
     void load_shaders();
     void recreate_swapchain();
     void destroy_swapchain();
-    u32 find_memory_type(u32 filter, vk::MemoryPropertyFlags properties);
 
     bool _is_init{};
     bool _focused{};
     bool _resized{};
-    i32 _frame_number{};
-    std::string _title{};
-    i32 _width{1600};
-    i32 _height{800};
-    GLFWwindow* _window{nullptr};
+    usize _frame_number{};
+    WindowData _window{};
     Timer _timer{};
     Camera _camera{};
     glm::dvec2 _cursor{};
@@ -102,11 +115,7 @@ private:
     vk::Queue _graphics_queue{};
     vk::UniqueSurfaceKHR _surface{};
     QueueFamily _queue_family{};
-    vk::Format _swapchain_format{};
-    vk::Extent2D _swapchain_extent{};
-    vk::UniqueSwapchainKHR _swapchain{};
-    std::vector<vk::Image> _swapchain_images{};
-    std::vector<vk::UniqueImageView> _swapchain_image_views{};
+    SwapchainData _swapchain{};
     DepthBuffer _depth_buffer{};
     vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
     vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};

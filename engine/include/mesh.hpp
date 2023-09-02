@@ -24,8 +24,7 @@ struct Vertex {
     glm::vec3 normal;
     glm::vec3 color;
 
-    static std::vector<vk::VertexInputBindingDescription>
-    get_binding_description() {
+    static std::vector<vk::VertexInputBindingDescription> binding_desc() {
         return {{
             0,
             sizeof(Vertex),
@@ -33,8 +32,7 @@ struct Vertex {
         }};
     }
 
-    static std::vector<vk::VertexInputAttributeDescription>
-    get_attr_description() {
+    static std::vector<vk::VertexInputAttributeDescription> attr_desc() {
         auto pos_attr = vk::VertexInputAttributeDescription{
             0,
             0,
@@ -91,7 +89,7 @@ public:
         glm::vec3 color = {1.0f, 0.0f, 1.0f}
     ) {
         auto mesh = Mesh{allocator};
-        const auto s = size / 2;
+        const auto s = size / 2.0f;
 
         mesh._vertices = {
             // -X side
@@ -234,7 +232,7 @@ public:
                 usize fv = 3;
                 for (size_t v = 0; v < fv; v++) {
                     tinyobj::index_t idx = shape.mesh.indices[offset + v];
-                    Vertex vertex;
+                    Vertex vertex{};
 
                     vertex.position = {
                         attrib.vertices[3 * idx.vertex_index + 0],
@@ -259,7 +257,7 @@ public:
     }
 
     [[nodiscard]]
-    glm::mat4 get_transform() const;
+    glm::mat4 transform() const;
     void upload();
     void bind(vk::CommandBuffer& cmd) const;
     void draw(const vk::UniqueCommandBuffer& cmd) const;
@@ -311,7 +309,7 @@ private:
             "Failed to allocate mesh buffer"
         );
 
-        void* data;
+        void* data{};
         VK_CHECK(
             vmaMapMemory(_allocator, buffer.allocation, &data),
             "Failed to map memory allocation"

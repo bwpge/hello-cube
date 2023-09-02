@@ -4,11 +4,11 @@
 
 namespace hc {
 
-using Clock = std::chrono::high_resolution_clock;
-using Instant = std::chrono::time_point<Clock>;
-
 class Timer {
 public:
+    using Clock = std::chrono::high_resolution_clock;
+    using Instant = std::chrono::time_point<Clock>;
+
     Timer();
 
     double tick();

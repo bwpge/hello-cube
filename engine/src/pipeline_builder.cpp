@@ -95,8 +95,8 @@ GraphicsPipeline PipelineBuilder::build(
     const vk::Device& device,
     const vk::RenderPass& render_pass
 ) {
-    auto vertex_binding = Vertex::get_binding_description();
-    auto vertex_attr = Vertex::get_attr_description();
+    auto vertex_binding = Vertex::binding_desc();
+    auto vertex_attr = Vertex::attr_desc();
     vk::PipelineVertexInputStateCreateInfo vertex_input{};
     vertex_input.setVertexBindingDescriptions(vertex_binding);
     vertex_input.setVertexAttributeDescriptions(vertex_attr);

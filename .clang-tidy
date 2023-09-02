@@ -13,8 +13,12 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  cppcoreguidelines-*,
   -bugprone-unchecked-optional-access,
   -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
   -readability-named-parameter,
   -readability-braces-around-statements,
   -readability-magic-numbers,
@@ -74,3 +78,5 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.StaticVariablePrefix
     value: s_
+  - key: cppcoreguidelines-avoid-do-while.IgnoreMacros
+    value: true

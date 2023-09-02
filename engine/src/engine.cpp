@@ -8,9 +8,10 @@
 
 namespace hc {
 
-auto get_extensions() -> std::vector<const char*> {
+std::vector<const char*> get_extensions() {
     u32 count{};
     auto* glfw_ext = glfwGetRequiredInstanceExtensions(&count);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     auto result = std::vector(glfw_ext, glfw_ext + count);
 
     result.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -18,11 +19,11 @@ auto get_extensions() -> std::vector<const char*> {
     return result;
 }
 
-auto get_surface_extent(
+vk::Extent2D get_surface_extent(
     vk::PhysicalDevice& device,
     vk::SurfaceKHR& surface,
     GLFWwindow* window
-) -> vk::Extent2D {
+) {
     const auto capabilities = device.getSurfaceCapabilitiesKHR(surface);
 
     vk::Extent2D extent{};
@@ -90,33 +91,34 @@ void Engine::init() {
 
     spdlog::trace(
         "Creating window: title='{}', width={}, height={}",
-        _title,
-        _width,
-        _height
+        _window.title,
+        _window.width,
+        _window.height
     );
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    _window =
-        glfwCreateWindow(_width, _height, _title.c_str(), nullptr, nullptr);
-    glfwSetWindowUserPointer(_window, this);
+    _window.handle = glfwCreateWindow(
+        _window.width, _window.height, _window.title.c_str(), nullptr, nullptr
+    );
+    glfwSetWindowUserPointer(_window.handle, this);
 
-    if (!_window) {
+    if (!_window.handle) {
         PANIC("Failed to create window");
     }
 
     _camera = Camera{45.f, aspect_ratio(), 0.1f, 200.f};
     _focused = true;
 
-    glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(_window.handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     if (glfwRawMouseMotionSupported()) {
-        glfwSetInputMode(_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     }
-    glfwSetWindowFocusCallback(_window, window_focus_callback);
-    glfwSetKeyCallback(_window, key_callback);
-    glfwSetScrollCallback(_window, scroll_callback);
-    glfwSetFramebufferSizeCallback(_window, framebufer_resize_callback);
+    glfwSetWindowFocusCallback(_window.handle, window_focus_callback);
+    glfwSetKeyCallback(_window.handle, key_callback);
+    glfwSetScrollCallback(_window.handle, scroll_callback);
+    glfwSetFramebufferSizeCallback(_window.handle, framebufer_resize_callback);
 
     init_vulkan();
-    glfwGetCursorPos(_window, &_cursor.x, &_cursor.y);
+    glfwGetCursorPos(_window.handle, &_cursor.x, &_cursor.y);
 
     _is_init = true;
 }
@@ -125,7 +127,7 @@ void Engine::run() {
     spdlog::info("Entering main application loop");
 
     _timer.reset();
-    while (!glfwWindowShouldClose(_window)) {
+    while (!glfwWindowShouldClose(_window.handle)) {
         glfwPollEvents();
         update(_timer.tick());
         render();
@@ -145,13 +147,13 @@ void Engine::update(double dt) {
     auto l_z = 30.0f * glm::cos(l_theta);
     _scene.set_light_pos({l_x, 3.0f, l_z});
 
-    auto w = glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS;
-    auto a = glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS;
-    auto s = glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS;
-    auto d = glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS;
-    auto alt = glfwGetKey(_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS;
-    auto space = glfwGetKey(_window, GLFW_KEY_SPACE) == GLFW_PRESS;
-    auto shift = glfwGetKey(_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
+    auto w = glfwGetKey(_window.handle, GLFW_KEY_W) == GLFW_PRESS;
+    auto a = glfwGetKey(_window.handle, GLFW_KEY_A) == GLFW_PRESS;
+    auto s = glfwGetKey(_window.handle, GLFW_KEY_S) == GLFW_PRESS;
+    auto d = glfwGetKey(_window.handle, GLFW_KEY_D) == GLFW_PRESS;
+    auto alt = glfwGetKey(_window.handle, GLFW_KEY_LEFT_ALT) == GLFW_PRESS;
+    auto space = glfwGetKey(_window.handle, GLFW_KEY_SPACE) == GLFW_PRESS;
+    auto shift = glfwGetKey(_window.handle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
 
     if (shift) {
         _camera.set_sprint(true);
@@ -178,7 +180,7 @@ void Engine::update(double dt) {
     }
 
     glm::dvec2 pos{};
-    glfwGetCursorPos(_window, &pos.x, &pos.y);
+    glfwGetCursorPos(_window.handle, &pos.x, &pos.y);
     if (pos != _cursor) {
         on_mouse_move(pos);
     }
@@ -191,7 +193,7 @@ void Engine::render() {
     }
 
     auto res = _device->acquireNextImageKHR(
-        _swapchain.get(), SYNC_TIMEOUT, _present_semaphore.get(), nullptr
+        _swapchain.handle.get(), SYNC_TIMEOUT, _present_semaphore.get(), nullptr
     );
     if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
         res.result == vk::Result::eSuboptimalKHR) {
@@ -217,7 +219,7 @@ void Engine::render() {
     vk::RenderPassBeginInfo rpinfo{
         _render_pass.get(),
         _framebuffers[idx].get(),
-        vk::Rect2D{{0, 0}, _swapchain_extent},
+        vk::Rect2D{{0, 0}, _swapchain.extent},
         clear,
     };
 
@@ -227,12 +229,12 @@ void Engine::render() {
         _gfx_pipelines.pipelines[_pipeline_idx].get()
     );
 
-    auto proj = _camera.get_projection();
-    auto view = _camera.get_view();
+    auto proj = _camera.projection();
+    auto view = _camera.view();
 
     auto constants = PushConstants{proj, view, {}, _scene.light_pos()};
     for (const auto& mesh : _scene.meshes()) {
-        constants.model = mesh.get_transform();
+        constants.model = mesh.transform();
 
         _cmd_buffer->pushConstants(
             _gfx_pipelines.layout.get(),
@@ -258,7 +260,8 @@ void Engine::render() {
     };
     _graphics_queue.submit(submit, _render_fence.get());
 
-    vk::PresentInfoKHR present{_render_semaphore.get(), _swapchain.get(), idx};
+    vk::PresentInfoKHR present{
+        _render_semaphore.get(), _swapchain.handle.get(), idx};
     if (_graphics_queue.presentKHR(present) != vk::Result::eSuccess) {
         PANIC("Failed to present swapchain frame");
     }
@@ -281,8 +284,8 @@ void Engine::cleanup() {
     vmaDestroyAllocator(_allocator);
 
     spdlog::trace("Destroying window and terminating GLFW");
-    if (_window) {
-        glfwDestroyWindow(_window);
+    if (_window.handle) {
+        glfwDestroyWindow(_window.handle);
     }
     glfwTerminate();
 }
@@ -314,7 +317,7 @@ void Engine::on_key_press(i32 keycode) {
 
     switch (keycode) {
         case GLFW_KEY_ESCAPE:
-            glfwSetWindowShouldClose(_window, GLFW_TRUE);
+            glfwSetWindowShouldClose(_window.handle, GLFW_TRUE);
             break;
         case GLFW_KEY_C:
             cycle_pipeline();
@@ -343,9 +346,9 @@ void Engine::on_mouse_move(glm::dvec2 pos) {
 }
 
 float Engine::aspect_ratio() const noexcept {
-    return _height == 0
-               ? 0.f
-               : static_cast<float>(_width) / static_cast<float>(_height);
+    return _window.height == 0 ? 0.f
+                               : static_cast<float>(_window.width) /
+                                     static_cast<float>(_window.height);
 }
 
 void Engine::init_vulkan() {
@@ -423,9 +426,10 @@ void Engine::create_instance() {
 void Engine::create_surface() {
     spdlog::trace("Initializing window surface");
 
-    VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(_instance.get(), _window, nullptr, &surface) !=
-        VK_SUCCESS) {
+    VkSurfaceKHR surface{};
+    if (glfwCreateWindowSurface(
+            _instance.get(), _window.handle, nullptr, &surface
+        ) != VK_SUCCESS) {
         PANIC("Failed to create window surface");
     }
     if (surface == VK_NULL_HANDLE) {
@@ -548,8 +552,9 @@ void Engine::create_swapchain() {
     spdlog::trace("Creating swapchain");
 
     const auto capabilities = _gpu.getSurfaceCapabilitiesKHR(_surface.get());
-    _swapchain_extent = get_surface_extent(_gpu, _surface.get(), _window);
-    _swapchain_format = vk::Format::eB8G8R8A8Unorm;
+    _swapchain.extent =
+        get_surface_extent(_gpu, _surface.get(), _window.handle);
+    _swapchain.format = vk::Format::eB8G8R8A8Unorm;
     auto color = vk::ColorSpaceKHR::eSrgbNonlinear;
     auto mode = vk::PresentModeKHR::eFifo;
 
@@ -563,9 +568,9 @@ void Engine::create_swapchain() {
         {},
         _surface.get(),
         img_count,
-        _swapchain_format,
+        _swapchain.format,
         color,
-        _swapchain_extent,
+        _swapchain.extent,
         1,
         vk::ImageUsageFlagBits::eColorAttachment,
     };
@@ -582,21 +587,21 @@ void Engine::create_swapchain() {
         .setPresentMode(mode)
         .setClipped(VK_TRUE);
 
-    _swapchain = _device->createSwapchainKHRUnique(scci);
-    _swapchain_images = _device->getSwapchainImagesKHR(_swapchain.get());
+    _swapchain.handle = _device->createSwapchainKHRUnique(scci);
+    _swapchain.images = _device->getSwapchainImagesKHR(_swapchain.handle.get());
 
-    _swapchain_image_views.clear();
-    for (auto img : _swapchain_images) {
+    _swapchain.image_views.clear();
+    for (auto img : _swapchain.images) {
         vk::ImageViewCreateInfo ivci{};
         ivci.setImage(img)
             .setViewType(vk::ImageViewType::e2D)
-            .setFormat(_swapchain_format)
+            .setFormat(_swapchain.format)
             .setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-        _swapchain_image_views.push_back(_device->createImageViewUnique(ivci));
+        _swapchain.image_views.push_back(_device->createImageViewUnique(ivci));
     }
 
     _depth_buffer.destroy();
-    _depth_buffer = DepthBuffer{_allocator, _device.get(), _swapchain_extent};
+    _depth_buffer = DepthBuffer{_allocator, _device.get(), _swapchain.extent};
 }
 
 void Engine::create_scene() {
@@ -659,7 +664,7 @@ void Engine::init_renderpass() {
 
     vk::AttachmentDescription color_attach{
         {},
-        _swapchain_format,
+        _swapchain.format,
         vk::SampleCountFlagBits::e1,
         vk::AttachmentLoadOp::eClear,
         vk::AttachmentStoreOp::eStore,
@@ -729,15 +734,15 @@ void Engine::create_framebuffers() {
     spdlog::trace("Creating framebuffers");
 
     _framebuffers.clear();
-    for (const auto& iv : _swapchain_image_views) {
+    for (const auto& iv : _swapchain.image_views) {
         auto attachments =
             std::vector<vk::ImageView>{iv.get(), _depth_buffer.image_view()};
 
         vk::FramebufferCreateInfo info{};
         info.setRenderPass(_render_pass.get())
             .setAttachments(attachments)
-            .setWidth(_swapchain_extent.width)
-            .setHeight(_swapchain_extent.height)
+            .setWidth(_swapchain.extent.width)
+            .setHeight(_swapchain.extent.height)
             .setLayers(1);
 
         _framebuffers.push_back(_device->createFramebufferUnique(info));
@@ -774,7 +779,7 @@ void Engine::create_pipelines() {
             .add_fragment_shader(
                 _shaders.fragment["mesh"].shader_module(_device.get())
             )
-            .set_extent(_swapchain_extent)
+            .set_extent(_swapchain.extent)
             .set_cull_mode(vk::CullModeFlagBits::eBack)
             .set_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             .new_pipeline()
@@ -784,7 +789,7 @@ void Engine::create_pipelines() {
             .add_fragment_shader(
                 _shaders.fragment["wireframe"].shader_module(_device.get())
             )
-            .set_extent(_swapchain_extent)
+            .set_extent(_swapchain.extent)
             .set_polygon_mode(vk::PolygonMode::eLine)
             .set_cull_mode(vk::CullModeFlagBits::eNone)
             .build(_device.get(), _render_pass.get());
@@ -806,11 +811,11 @@ void Engine::recreate_swapchain() {
 
     // HACK: spin lock minimized state
     // this doesn't allow anything else in the application to execute
-    i32 w;
-    i32 h;
-    glfwGetFramebufferSize(_window, &w, &h);
-    while (w == 0 || h == 0) {
-        glfwGetFramebufferSize(_window, &w, &h);
+    i32 width{};
+    i32 height{};
+    glfwGetFramebufferSize(_window.handle, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(_window.handle, &width, &height);
         glfwPollEvents();
     }
 
@@ -824,23 +829,9 @@ void Engine::recreate_swapchain() {
 
 void Engine::destroy_swapchain() {
     _framebuffers.clear();
-    _swapchain_image_views.clear();
-    _swapchain_images.clear();
-    _swapchain = {};
-}
-
-u32 Engine::find_memory_type(u32 filter, vk::MemoryPropertyFlags properties) {
-    auto mem_props = _gpu.getMemoryProperties();
-
-    for (u32 i = 0; i < mem_props.memoryTypeCount; i++) {
-        // NOLINTNEXTLINE(readability-implicit-bool-conversion)
-        if ((filter & (1 << i)) && (mem_props.memoryTypes[i].propertyFlags &
-                                    properties) == properties) {
-            return i;
-        }
-    }
-
-    PANIC("Failed to locate suitable memory allocation type");
+    _swapchain.image_views.clear();
+    _swapchain.images.clear();
+    _swapchain.handle = {};
 }
 
 }  // namespace hc

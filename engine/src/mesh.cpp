@@ -9,7 +9,7 @@ Mesh::Mesh(VmaAllocator allocator) : _allocator{allocator} {
     }
 }
 
-glm::mat4 Mesh::get_transform() const {
+glm::mat4 Mesh::transform() const {
     auto translate = glm::translate(glm::mat4(1.0f), _transform.translation);
     auto rotate = glm::toMat4(glm::quat(_transform.rotation));
     auto scale = glm::scale(glm::mat4(1.0f), _transform.scale);

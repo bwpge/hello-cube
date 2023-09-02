@@ -2,15 +2,15 @@
 
 namespace hc {
 
-glm::mat4 Camera::get_view() const {
+glm::mat4 Camera::view() const {
     return glm::lookAt(_pos, _pos + _front, _up);
 }
 
-glm::mat4 Camera::get_projection() const {
+glm::mat4 Camera::projection() const {
     return glm::perspective(glm::radians(_fov), _aspect, _near_z, _far_z);
 }
 
-glm::vec3 Camera::get_position() const {
+glm::vec3 Camera::translation() const {
     return _pos;
 }
 
@@ -18,7 +18,7 @@ void Camera::set_aspect(float aspect) {
     _aspect = aspect;
 }
 
-void Camera::set_position(glm::vec3 pos) {
+void Camera::set_translation(glm::vec3 pos) {
     _pos = pos;
 }
 

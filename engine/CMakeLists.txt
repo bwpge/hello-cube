@@ -65,6 +65,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<sstream>"
         "<string>"
         "<string_view>"
+        "<unordered_map>"
         "<utility>"
         "<vector>"
         "<vulkan/vulkan.hpp>"

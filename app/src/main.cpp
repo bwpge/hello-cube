@@ -2,7 +2,7 @@
 
 #include "hello_cube.hpp"
 
-i32 main() {
+int main() {
     auto engine = std::make_unique<hc::Engine>("Hello Cube", 1920, 1080);
 
     try {

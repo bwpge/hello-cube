@@ -38,18 +38,18 @@ public:
     ~Camera() = default;
 
     [[nodiscard]]
-    glm::mat4 get_view() const;
+    glm::mat4 view() const;
     [[nodiscard]]
-    glm::mat4 get_projection() const;
+    glm::mat4 projection() const;
     [[nodiscard]]
-    glm::vec3 get_position() const;
+    glm::vec3 translation() const;
 
     void set_aspect(float aspect);
-    void set_position(glm::vec3 pos);
     void set_sprint(bool on);
+    void set_translation(glm::vec3 pos);
 
     inline void reset() {
-        _pos = _start;
+        _pos = {0.f, 0.f, 5.f};
         _pitch = 0.f;
         _yaw = -180.f;
         _fov = 45.f;
