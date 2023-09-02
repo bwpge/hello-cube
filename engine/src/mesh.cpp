@@ -76,11 +76,6 @@ void Mesh::set_translation(glm::vec3 position) {
 
 void Mesh::destroy_buffer(AllocatedBuffer& buf) {
     if (buf.buffer || buf.allocation) {
-        spdlog::trace(
-            "Destroying AllocatedBuffer: buffer={:p}, allocation={:p}",
-            spdlog::fmt_lib::ptr(buf.buffer),
-            spdlog::fmt_lib::ptr(buf.allocation)
-        );
         vmaDestroyBuffer(_allocator, buf.buffer, buf.allocation);
     }
 }

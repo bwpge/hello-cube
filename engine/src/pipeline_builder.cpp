@@ -108,9 +108,9 @@ GraphicsPipeline PipelineBuilder::build(
     };
     vk::Viewport viewport{
         0.0f,
-        0.0f,
-        static_cast<float>(_config[_idx].extent.width),
         static_cast<float>(_config[_idx].extent.height),
+        static_cast<float>(_config[_idx].extent.width),
+        -static_cast<float>(_config[_idx].extent.height),
         0.0f,
         1.0f,
     };

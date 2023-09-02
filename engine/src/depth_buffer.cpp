@@ -55,11 +55,6 @@ void DepthBuffer::destroy() {
 
 void DepthBuffer::destroy_image(AllocatedImage& buf) {
     if (buf.image || buf.allocation) {
-        spdlog::trace(
-            "Destroying AllocatedImage: image={:p}, allocation={:p}",
-            spdlog::fmt_lib::ptr(buf.image),
-            spdlog::fmt_lib::ptr(buf.allocation)
-        );
         vmaDestroyImage(_allocator, buf.image, buf.allocation);
     }
 }

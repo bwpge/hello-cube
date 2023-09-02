@@ -25,9 +25,10 @@ struct GLFWwindow;
 namespace hc {
 
 struct PushConstants {
-    glm::mat4 projection;
-    glm::mat4 view;
-    glm::mat4 model;
+    glm::mat4 projection{};
+    glm::mat4 view{};
+    glm::mat4 model{};
+    glm::vec3 light_pos{};
 };
 
 struct QueueFamily {

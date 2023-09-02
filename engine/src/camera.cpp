@@ -35,7 +35,7 @@ void Camera::rotate(double dx, double dy) {
     if (_yaw > 180.f) {
         _yaw -= 360.f;
     }
-    _pitch += up_sign * static_cast<float>(dy) * _rotation_speed;
+    _pitch += static_cast<float>(dy) * _rotation_speed;
     _pitch = std::clamp(_pitch, -85.f, 85.f);
 
     auto rotation =
@@ -72,12 +72,12 @@ void Camera::move(CameraDirection direction, double dt) {
             break;
         case CameraDirection::Up: {
             auto right = glm::cross(_front, _up);
-            _pos += glm::normalize(glm::cross(_front, right)) * amount;
+            _pos -= glm::normalize(glm::cross(_front, right)) * amount;
             break;
         }
         case CameraDirection::Down: {
             auto right = glm::cross(_front, _up);
-            _pos -= glm::normalize(glm::cross(_front, right)) * amount;
+            _pos += glm::normalize(glm::cross(_front, right)) * amount;
             break;
         }
         default:

@@ -64,7 +64,7 @@ private:
     glm::vec3 _pos{0.f, 0.f, 5.f};
     glm::vec3 _start{_pos};
     glm::vec3 _front{0.f, 0.f, -1.f};
-    glm::vec3 _up{0.f, -1.f, 0.f};  // vulkan +y-axis is down
+    glm::vec3 _up{0.f, 1.f, 0.f};
     float _pitch{};
     float _yaw{-180.f};  // start at -180 to look at origin
     float _fov{45.f};

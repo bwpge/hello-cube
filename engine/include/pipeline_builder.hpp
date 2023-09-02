@@ -19,7 +19,7 @@ struct PipelineConfig {
     vk::CullModeFlagBits cull_mode{vk::CullModeFlagBits::eBack};
     vk::Extent2D extent{};
     vk::PolygonMode polygon_mode{vk::PolygonMode::eFill};
-    vk::FrontFace front_face{vk::FrontFace::eClockwise};
+    vk::FrontFace front_face{vk::FrontFace::eCounterClockwise};
     vk::PipelineDepthStencilStateCreateInfo depth_stencil{};
 };
 

@@ -15,9 +15,12 @@ public:
     void reset();
     double elapsed_secs();
     double elapsed_ms();
+    double total_secs();
+    double total_ms();
 
 private:
     Instant _start{};
+    Instant _last{};
 };
 
 }  // namespace hc

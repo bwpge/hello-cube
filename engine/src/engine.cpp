@@ -139,6 +139,12 @@ void Engine::update(double dt) {
         return;
     }
 
+    // orbit light position around origin
+    auto l_theta = static_cast<float>(_timer.total_secs()) * glm::pi<float>();
+    auto l_x = 30.0f * glm::sin(l_theta);
+    auto l_z = 30.0f * glm::cos(l_theta);
+    _scene.set_light_pos({l_x, 3.0f, l_z});
+
     auto w = glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS;
     auto a = glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS;
     auto s = glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS;
@@ -224,9 +230,9 @@ void Engine::render() {
     auto proj = _camera.get_projection();
     auto view = _camera.get_view();
 
+    auto constants = PushConstants{proj, view, {}, _scene.light_pos()};
     for (const auto& mesh : _scene.meshes()) {
-        auto model = mesh.get_transform();
-        auto constants = PushConstants{proj, view, model};
+        constants.model = mesh.get_transform();
 
         _cmd_buffer->pushConstants(
             _gfx_pipelines.layout.get(),
@@ -599,6 +605,7 @@ void Engine::create_scene() {
             Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj")
         );
         mesh.set_translation({0.0f, 3.0f, -3.0f});
+        mesh.set_scale(1.25f);
     }
 
     const i32 count = 20;

@@ -22,8 +22,18 @@ public:
         return _meshes;
     }
 
+    [[nodiscard]]
+    glm::vec3 light_pos() const {
+        return _light_pos;
+    }
+
+    void set_light_pos(const glm::vec3& light_pos) {
+        _light_pos = light_pos;
+    }
+
 private:
     std::vector<Mesh> _meshes{};
+    glm::vec3 _light_pos{};
 };
 
 }  // namespace hc
