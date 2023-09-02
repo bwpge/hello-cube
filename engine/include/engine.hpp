@@ -21,6 +21,8 @@
 #include "pipeline_builder.hpp"
 
 struct GLFWwindow;
+struct GLFWmonitor;
+struct GLFWvidmode;
 
 namespace hc {
 
@@ -48,7 +50,12 @@ struct WindowData {
     std::string title{};
     i32 width{1600};
     i32 height{800};
+    i32 start_x{};
+    i32 start_y{};
+    bool is_fullscreen{};
     GLFWwindow* handle{nullptr};
+    GLFWmonitor* monitor{nullptr};
+    const GLFWvidmode* mode{nullptr};
 };
 
 class Engine {
@@ -71,15 +78,17 @@ public:
     void cleanup();
 
     void cycle_pipeline();
+    void toggle_fullscreen();
     void on_resize();
     void on_focus(bool focused);
     void on_mouse_move(glm::dvec2 pos);
     void on_scroll(double dx, double dy);
-    void on_key_press(i32 keycode);
+    void on_key_press(i32 keycode, i32 mods);
 
 private:
     [[nodiscard]]
     float aspect_ratio() const noexcept;
+    void init_glfw();
     void init_vulkan();
     void init_allocator();
     void create_swapchain();

@@ -60,11 +60,11 @@ void window_focus_callback(GLFWwindow* window, i32 focused) {
     engine->on_focus(static_cast<bool>(focused));
 }
 
-void key_callback(GLFWwindow* window, i32 key, i32, i32 action, i32) {
+void key_callback(GLFWwindow* window, i32 key, i32, i32 action, i32 mods) {
     if (action == GLFW_PRESS) {
         auto* engine =
             reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
-        engine->on_key_press(key);
+        engine->on_key_press(key, mods);
     }
 }
 
@@ -84,41 +84,14 @@ void Engine::init() {
         return;
     }
 
-    hc::configure_logger();
+    configure_logger();
+    init_glfw();
+    init_vulkan();
 
-    spdlog::trace("Initializing GLFW");
-    glfwInit();
-
-    spdlog::trace(
-        "Creating window: title='{}', width={}, height={}",
-        _window.title,
-        _window.width,
-        _window.height
-    );
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    _window.handle = glfwCreateWindow(
-        _window.width, _window.height, _window.title.c_str(), nullptr, nullptr
-    );
-    glfwSetWindowUserPointer(_window.handle, this);
-
-    if (!_window.handle) {
-        PANIC("Failed to create window");
-    }
-
+    // capture state for camera controls
+    glfwGetCursorPos(_window.handle, &_cursor.x, &_cursor.y);
     _camera = Camera{45.f, aspect_ratio(), 0.1f, 200.f};
     _focused = true;
-
-    glfwSetInputMode(_window.handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    if (glfwRawMouseMotionSupported()) {
-        glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-    }
-    glfwSetWindowFocusCallback(_window.handle, window_focus_callback);
-    glfwSetKeyCallback(_window.handle, key_callback);
-    glfwSetScrollCallback(_window.handle, scroll_callback);
-    glfwSetFramebufferSizeCallback(_window.handle, framebufer_resize_callback);
-
-    init_vulkan();
-    glfwGetCursorPos(_window.handle, &_cursor.x, &_cursor.y);
 
     _is_init = true;
 }
@@ -294,6 +267,38 @@ void Engine::cycle_pipeline() {
     _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.pipelines.size();
 }
 
+void Engine::toggle_fullscreen() {
+    if (_window.is_fullscreen) {
+        _window.is_fullscreen = false;
+        glfwSetWindowMonitor(
+            _window.handle,
+            nullptr,
+            _window.start_x,
+            _window.start_y,
+            _window.width,
+            _window.height,
+            _window.mode->refreshRate
+        );
+        return;
+    }
+
+    glfwWindowHint(GLFW_RED_BITS, _window.mode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, _window.mode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, _window.mode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, _window.mode->refreshRate);
+
+    glfwSetWindowMonitor(
+        _window.handle,
+        _window.monitor,
+        0,
+        0,
+        _window.mode->width,
+        _window.mode->height,
+        _window.mode->refreshRate
+    );
+    _window.is_fullscreen = true;
+}
+
 void Engine::on_resize() {
     _resized = true;
 }
@@ -310,9 +315,14 @@ void Engine::on_scroll(double, double dy) {
     _camera.zoom(direction, _timer.elapsed_secs());
 }
 
-void Engine::on_key_press(i32 keycode) {
+void Engine::on_key_press(i32 keycode, i32 mods) {
     if (!_is_init || !_focused) {
         return;
+    }
+
+    if ((mods & GLFW_MOD_ALT && keycode == GLFW_KEY_ENTER) ||
+        keycode == GLFW_KEY_F11) {
+        toggle_fullscreen();
     }
 
     switch (keycode) {
@@ -349,6 +359,47 @@ float Engine::aspect_ratio() const noexcept {
     return _window.height == 0 ? 0.f
                                : static_cast<float>(_window.width) /
                                      static_cast<float>(_window.height);
+}
+
+void Engine::init_glfw() {
+    spdlog::trace("Initializing GLFW");
+    glfwInit();
+
+    spdlog::trace(
+        "Creating window: title='{}', width={}, height={}",
+        _window.title,
+        _window.width,
+        _window.height
+    );
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    _window.handle = glfwCreateWindow(
+        _window.width, _window.height, _window.title.c_str(), nullptr, nullptr
+    );
+    if (!_window.handle) {
+        PANIC("Failed to create window");
+    }
+
+    // capture initial state for fullscreen toggling
+    _window.monitor = glfwGetPrimaryMonitor();
+    _window.mode = glfwGetVideoMode(_window.monitor);
+    glfwGetWindowPos(_window.handle, &_window.start_x, &_window.start_y);
+
+    // center window
+    auto x = (_window.mode->width / 2) - (_window.width / 2);
+    auto y = (_window.mode->height / 2) - (_window.height / 2);
+    glfwSetWindowPos(_window.handle, x, y);
+    glfwGetWindowPos(_window.handle, &_window.start_x, &_window.start_y);
+
+    // set window properties callbacks
+    glfwSetInputMode(_window.handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
+    glfwSetWindowFocusCallback(_window.handle, window_focus_callback);
+    glfwSetKeyCallback(_window.handle, key_callback);
+    glfwSetScrollCallback(_window.handle, scroll_callback);
+    glfwSetFramebufferSizeCallback(_window.handle, framebufer_resize_callback);
+    glfwSetWindowUserPointer(_window.handle, this);
 }
 
 void Engine::init_vulkan() {
