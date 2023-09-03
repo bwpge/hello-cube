@@ -599,14 +599,11 @@ void Engine::create_device() {
 void Engine::load_shaders() {
     spdlog::debug("Loading shaders");
 
-    _shaders.vertex["mesh"] = Shader::load_spv("../shaders/mesh.vert.spv");
-    _shaders.fragment["mesh"] = Shader::load_spv("../shaders/mesh.frag.spv");
-    _shaders.fragment["hello_triangle"] =
-        Shader::load_spv("../shaders/hello_triangle.frag.spv");
-    _shaders.vertex["hello_triangle"] =
-        Shader::load_spv("../shaders/hello_triangle.vert.spv");
-    _shaders.fragment["wireframe"] =
-        Shader::load_spv("../shaders/wireframe.frag.spv");
+    _shaders.load("mesh", ShaderType::Vertex, "../shaders/mesh.vert.spv");
+    _shaders.load("mesh", ShaderType::Fragment, "../shaders/mesh.frag.spv");
+    _shaders.load(
+        "wireframe", ShaderType::Fragment, "../shaders/wireframe.frag.spv"
+    );
 }
 
 void Engine::create_swapchain() {
@@ -667,14 +664,13 @@ void Engine::create_swapchain() {
 
 void Engine::create_scene() {
     {
-        auto& mesh = _scene.add_mesh(
-            Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj")
-        );
+        auto mesh = Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj");
         mesh.set_translation({0.0f, 3.0f, -3.0f});
         mesh.set_scale(1.25f);
+        _scene.add_mesh(std::move(mesh));
     }
 
-    const i32 count = 20;
+    constexpr i32 count = 20;
     for (i32 i = -count; i <= count; i++) {
         for (i32 j = -count; j <= count; j++) {
             auto x = static_cast<float>(2 * i);
@@ -684,14 +680,12 @@ void Engine::create_scene() {
             auto g = static_cast<float>(std::abs(count + j)) / (2 * count);
             auto color = glm::vec3{r, g, 1.0f};
 
-            auto& mesh =
-                std::abs(j) % 2 == 1
-                    ? _scene.add_mesh(
-                          Mesh::sphere(_allocator, 0.4f, color, 36, 20)
-                      )
-                    : _scene.add_mesh(Mesh::cube(_allocator, 0.5f, color));
+            auto mesh = std::abs(j) % 2 == 1
+                            ? Mesh::sphere(_allocator, 0.4f, color, 36, 20)
+                            : Mesh::cube(_allocator, 0.5f, color);
             mesh.set_translation({x, y, z});
             mesh.set_rotation({x, 0.0f, z});
+            _scene.add_mesh(std::move(mesh));
         }
     }
 
@@ -837,20 +831,20 @@ void Engine::create_pipelines() {
         builder.set_push_constant(push_constant)
             .new_pipeline()
             .add_vertex_shader(
-                _shaders.vertex["mesh"].shader_module(_device.get())
+                _shaders.module("mesh", ShaderType::Vertex, _device)
             )
             .add_fragment_shader(
-                _shaders.fragment["mesh"].shader_module(_device.get())
+                _shaders.module("mesh", ShaderType::Fragment, _device)
             )
             .set_extent(_swapchain.extent)
             .set_cull_mode(vk::CullModeFlagBits::eBack)
             .set_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             .new_pipeline()
             .add_vertex_shader(
-                _shaders.vertex["mesh"].shader_module(_device.get())
+                _shaders.module("mesh", ShaderType::Vertex, _device)
             )
             .add_fragment_shader(
-                _shaders.fragment["wireframe"].shader_module(_device.get())
+                _shaders.module("wireframe", ShaderType::Fragment, _device)
             )
             .set_extent(_swapchain.extent)
             .set_polygon_mode(vk::PolygonMode::eLine)

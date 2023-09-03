@@ -75,14 +75,16 @@ void Mesh::set_translation(glm::vec3 position) {
 }
 
 void Mesh::destroy_buffer(AllocatedBuffer& buf) {
-    if (buf.buffer || buf.allocation) {
+    if (_allocator) {
         vmaDestroyBuffer(_allocator, buf.buffer, buf.allocation);
     }
 }
 
 void Mesh::upload_vertex_buffer() {
     if (_vertices.empty()) {
-        spdlog::error("Calling Mesh::upload without vertex data is not valid");
+        spdlog::error(
+            "Uploading mesh vertex buffer without vertex data is not valid"
+        );
         return;
     }
     create_and_upload_buffer(
@@ -92,7 +94,9 @@ void Mesh::upload_vertex_buffer() {
 
 void Mesh::upload_index_buffer() {
     if (_indices.empty()) {
-        spdlog::error("Calling Mesh::upload without index data is not valid");
+        spdlog::error(
+            "Uploading mesh index buffer without index data is not valid"
+        );
         return;
     }
     create_and_upload_buffer(

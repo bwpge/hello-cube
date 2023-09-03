@@ -7,7 +7,11 @@ namespace hc {
 
 class Scene {
 public:
-    Mesh& add_mesh(Mesh&& mesh);
+    template <typename T>
+    void add_mesh(T&& mesh) {
+        _meshes.push_back(std::forward<T>(mesh));
+    }
+
     void destroy();
 
     [[nodiscard]]
@@ -21,11 +25,11 @@ public:
     }
 
     [[nodiscard]]
-    glm::vec3 light_pos() const {
+    inline glm::vec3 light_pos() const {
         return _light_pos;
     }
 
-    void set_light_pos(const glm::vec3& light_pos) {
+    inline void set_light_pos(const glm::vec3& light_pos) {
         _light_pos = light_pos;
     }
 

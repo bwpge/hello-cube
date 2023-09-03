@@ -2,7 +2,7 @@
 
 #include <fstream>
 #include <filesystem>
-#include <map>
+#include <unordered_map>
 
 #include <vulkan/vulkan.hpp>
 
@@ -35,15 +35,66 @@ public:
     }
 
     [[nodiscard]]
-    vk::UniqueShaderModule shader_module(const vk::Device& device) const;
+    vk::UniqueShaderModule module(const vk::UniqueDevice& device) const;
+    [[nodiscard]]
+    vk::UniqueShaderModule module(const vk::Device& device) const;
 
 private:
     std::vector<char> _buf{};
 };
 
-struct ShaderMap {
-    std::unordered_map<std::string_view, Shader> vertex{};
-    std::unordered_map<std::string_view, Shader> fragment{};
+enum class ShaderType {
+    Geometry,
+    Vertex,
+    Fragment,
+};
+
+class ShaderMap {
+    using Key = std::string_view;
+    using Map = std::unordered_map<Key, Shader>;
+
+public:
+    void load(Key key, ShaderType type, const std::filesystem::path& path);
+    void remove(Key key, ShaderType type);
+    [[nodiscard]]
+    const Shader& get(Key key, ShaderType type);
+
+    [[nodiscard]]
+    inline vk::UniqueShaderModule module(
+        Key key,
+        ShaderType type,
+        const vk::UniqueDevice& device
+    ) {
+        return get(key, type).module(device);
+    }
+
+    [[nodiscard]]
+    inline vk::UniqueShaderModule module(
+        Key key,
+        ShaderType type,
+        const vk::Device& device
+    ) {
+        return get(key, type).module(device);
+    }
+
+private:
+    inline Map& get_by_name(ShaderType type) {
+        switch (type) {
+            case ShaderType::Geometry:
+                return _geometry;
+            case ShaderType::Vertex:
+                return _vertex;
+            case ShaderType::Fragment:
+                return _fragment;
+            default:
+                PANIC("Unsupported shader type");
+                break;
+        }
+    }
+
+    Map _geometry{};
+    Map _vertex{};
+    Map _fragment{};
 };
 
 }  // namespace hc
