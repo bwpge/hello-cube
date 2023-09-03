@@ -29,6 +29,9 @@ public:
 
     PipelineBuilder& add_vertex_shader(vk::UniqueShaderModule shader);
     PipelineBuilder& add_fragment_shader(vk::UniqueShaderModule shader);
+    PipelineBuilder& add_descriptor_set_layout(
+        const vk::UniqueDescriptorSetLayout& layout
+    );
     PipelineBuilder& set_extent(const vk::Extent2D& extent);
     PipelineBuilder& set_front_face(vk::FrontFace front);
     PipelineBuilder& set_cull_mode(vk::CullModeFlagBits mode);
@@ -43,11 +46,12 @@ public:
     );
 
 private:
+    usize _idx{};
     std::vector<PipelineConfig> _config{};
     std::vector<std::vector<vk::PipelineShaderStageCreateInfo>> _stages{};
     std::vector<vk::PipelineRasterizationStateCreateInfo> _rasterizers{};
     vk::PushConstantRange _push_constant{};
-    usize _idx{};
+    std::vector<vk::DescriptorSetLayout> _desc_set_layouts{};
 };
 
 }  // namespace hc

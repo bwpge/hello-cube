@@ -10,6 +10,10 @@ glm::mat4 Camera::projection() const {
     return glm::perspective(glm::radians(_fov), _aspect, _near_z, _far_z);
 }
 
+glm::mat4 Camera::view_projection() const {
+    return projection() * view();
+}
+
 glm::vec3 Camera::translation() const {
     return _pos;
 }

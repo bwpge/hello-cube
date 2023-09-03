@@ -42,6 +42,9 @@ public:
     [[nodiscard]]
     glm::mat4 projection() const;
     [[nodiscard]]
+    glm::mat4 view_projection() const;
+
+    [[nodiscard]]
     glm::vec3 translation() const;
 
     void set_aspect(float aspect);

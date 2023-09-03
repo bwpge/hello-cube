@@ -9,19 +9,24 @@ layout (location = 1) out vec3 fragNormal;
 layout (location = 2) out vec3 fragColor;
 layout (location = 3) out vec3 fragLightPos;
 
-layout(push_constant) uniform constants
-{
+layout (set = 0, binding = 0) uniform CameraData {
 	mat4 projection;
 	mat4 view;
-	mat4 model;
+	mat4 viewProj;
 	vec3 lightPos;
+} camera;
+
+layout (push_constant) uniform constants
+{
+	mat4 model;
+	mat4 normalTransform;
 } pc;
 
 void main()
 {
-	gl_Position = pc.projection * pc.view * pc.model * vec4(inPosition, 1.0);
+	gl_Position = camera.viewProj * pc.model * vec4(inPosition, 1.0);
 	fragPos = vec3(pc.model * vec4(inPosition, 1.0));
-	fragNormal = normalize(mat3(transpose(inverse(pc.model))) * inNormal);
+	fragNormal = normalize(mat3(pc.normalTransform) * inNormal);
 	fragColor = inColor;
-	fragLightPos = pc.lightPos;
+	fragLightPos = camera.lightPos;
 }

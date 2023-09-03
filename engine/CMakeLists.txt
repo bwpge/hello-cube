@@ -13,11 +13,12 @@ set(HCENGINE_HEADER_FILES
     "include/engine.hpp"
     "include/hello_cube.hpp"
     "include/pipeline_builder.hpp"
+    "include/mesh.hpp"
     "include/scene.hpp"
     "include/shader.hpp"
     "include/timer.hpp"
     "include/types.hpp"
-    "include/mesh.hpp"
+    "include/uniform_buffer.hpp"
 )
 
 set(HCENGINE_SRC_FILES
@@ -33,6 +34,7 @@ set(HCENGINE_SRC_FILES
     "src/scene.cpp"
     "src/shader.cpp"
     "src/timer.cpp"
+    "src/uniform_buffer.cpp"
 )
 
 add_library(${PROJECT_NAME} STATIC ${HCENGINE_HEADER_FILES};${HCENGINE_SRC_FILES})

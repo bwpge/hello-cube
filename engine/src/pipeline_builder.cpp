@@ -39,6 +39,13 @@ PipelineBuilder& PipelineBuilder::add_fragment_shader(
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::add_descriptor_set_layout(
+    const vk::UniqueDescriptorSetLayout& layout
+) {
+    _desc_set_layouts.push_back(layout.get());
+    return *this;
+}
+
 PipelineBuilder& PipelineBuilder::add_vertex_shader(
     vk::UniqueShaderModule shader
 ) {
@@ -131,6 +138,9 @@ GraphicsPipeline PipelineBuilder::build(
     color_blend.setAttachments(color_blend_attachment);
 
     vk::PipelineLayoutCreateInfo layout_info{};
+    if (!_desc_set_layouts.empty()) {
+        layout_info.setSetLayouts(_desc_set_layouts);
+    }
     if (_push_constant.size > 0) {
         layout_info.setPushConstantRanges(_push_constant);
     }

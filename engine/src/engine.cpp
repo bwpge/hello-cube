@@ -166,6 +166,7 @@ void Engine::render() {
     const auto& render_fence = frame.render_fence;
     const auto& render_semaphore = frame.render_semaphore;
     const auto& present_semaphore = frame.present_semaphore;
+    const auto& pipeline = _gfx_pipelines.pipelines[_pipeline_idx];
 
     if (_device->waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
         vk::Result::eSuccess) {
@@ -203,18 +204,29 @@ void Engine::render() {
     };
 
     cmd->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
-    cmd->bindPipeline(
+    cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+    cmd->bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
-        _gfx_pipelines.pipelines[_pipeline_idx].get()
+        _gfx_pipelines.layout.get(),
+        0,
+        frame.descriptor,
+        nullptr
     );
 
-    auto proj = _camera.projection();
-    auto view = _camera.view();
+    CameraData camera{
+        _camera.projection(),
+        _camera.view(),
+        _camera.view_projection(),
+        _scene.light_pos(),
+    };
+    frame.camera_ubo.update(&camera);
 
-    auto constants = PushConstants{proj, view, {}, _scene.light_pos()};
     for (const auto& mesh : _scene.meshes()) {
-        constants.model = mesh.transform();
-
+        auto model = mesh.transform();
+        auto constants = PushConstants{
+            model,
+            glm::transpose(glm::inverse(model)),
+        };
         cmd->pushConstants(
             _gfx_pipelines.layout.get(),
             vk::ShaderStageFlagBits::eVertex,
@@ -259,6 +271,11 @@ void Engine::cleanup() {
 
     spdlog::trace("Destroying scene");
     _scene.destroy();
+
+    spdlog::trace("Destroying frame data");
+    for (auto& frame : _frames) {
+        frame.camera_ubo.destroy();
+    }
 
     spdlog::trace("Destroying allocator");
     vmaDestroyAllocator(_allocator);
@@ -426,6 +443,7 @@ void Engine::init_vulkan() {
     init_renderpass();
     create_framebuffers();
     create_sync_obj();
+    init_descriptors();
     create_pipelines();
 }
 
@@ -806,6 +824,58 @@ void Engine::create_framebuffers() {
     }
 }
 
+void Engine::init_descriptors() {
+    vk::DescriptorPoolSize pool_sizes{vk::DescriptorType::eUniformBuffer, 10};
+    vk::DescriptorPoolCreateInfo pool_info{};
+    pool_info.setMaxSets(10)
+        .setPoolSizes(pool_sizes)
+        .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
+
+    _desc_pool = _device->createDescriptorPoolUnique(pool_info);
+
+    vk::DescriptorSetLayoutBinding layout_binding{};
+    layout_binding.setBinding(0)
+        .setDescriptorCount(1)
+        .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+        .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+
+    vk::DescriptorSetLayoutCreateInfo layout_info = {};
+    layout_info.setBindings(layout_binding);
+
+    _global_desc_set_layout =
+        _device->createDescriptorSetLayoutUnique(layout_info);
+
+    for (auto& frame : _frames) {
+        // allocate ubo
+        frame.camera_ubo = UniformBufferObject{_allocator, sizeof(CameraData)};
+
+        // allocate the descriptor sets
+        vk::DescriptorSetAllocateInfo alloc_info{};
+        alloc_info.setDescriptorPool(_desc_pool.get())
+            .setDescriptorSetCount(1)
+            .setSetLayouts(_global_desc_set_layout.get());
+
+        auto sets = _device->allocateDescriptorSets(alloc_info);
+        HC_ASSERT(sets.size() == 1, "Sets should contain one element");
+        frame.descriptor = sets[0];
+
+        // bind the appropriate buffers
+        vk::DescriptorBufferInfo buf_info{};
+        buf_info.setBuffer(frame.camera_ubo.buffer())
+            .setOffset(0)
+            .setRange(sizeof(CameraData));
+
+        vk::WriteDescriptorSet set_write{};
+        set_write.setDstBinding(0)
+            .setDstSet(frame.descriptor)
+            .setDescriptorCount(1)
+            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+            .setBufferInfo(buf_info);
+
+        _device->updateDescriptorSets(set_write, nullptr);
+    }
+}
+
 void Engine::create_sync_obj() {
     spdlog::trace("Creating synchronization structures");
 
@@ -829,6 +899,7 @@ void Engine::create_pipelines() {
     PipelineBuilder builder{};
     _gfx_pipelines =
         builder.set_push_constant(push_constant)
+            .add_descriptor_set_layout(_global_desc_set_layout)
             .new_pipeline()
             .add_vertex_shader(
                 _shaders.module("mesh", ShaderType::Vertex, _device)

@@ -19,6 +19,7 @@
 #include "timer.hpp"
 #include "scene.hpp"
 #include "pipeline_builder.hpp"
+#include "uniform_buffer.hpp"
 
 struct GLFWwindow;
 struct GLFWmonitor;
@@ -26,11 +27,16 @@ struct GLFWvidmode;
 
 namespace hc {
 
-struct PushConstants {
-    glm::mat4 projection{};
-    glm::mat4 view{};
-    glm::mat4 model{};
+struct CameraData {
+    glm::mat4 proj;
+    glm::mat4 view;
+    glm::mat4 view_proj;
     glm::vec3 light_pos{};
+};
+
+struct PushConstants {
+    glm::mat4 model{};
+    glm::mat4 normal_transform{};
 };
 
 struct SwapchainData {
@@ -53,6 +59,11 @@ struct FrameData {
     vk::UniqueFence render_fence{};
     vk::UniqueCommandPool cmd_pool{};
     vk::UniqueCommandBuffer cmd{};
+    UniformBufferObject camera_ubo{};
+    vk::DescriptorSet descriptor{};
+    // NOTE: this descriptor set is freed by the owning pool, and since we are
+    //   not using VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, we don't
+    //   need to explicitly destroy them in the cleanup method
 };
 
 struct QueueFamily {
@@ -118,6 +129,7 @@ private:
     void init_commands();
     void init_renderpass();
     void create_framebuffers();
+    void init_descriptors();
     void create_pipelines();
     void create_sync_obj();
     void create_instance();
@@ -155,6 +167,8 @@ private:
     std::vector<FrameData> _frames{};
     vk::UniqueRenderPass _render_pass{};
     std::vector<vk::UniqueFramebuffer> _framebuffers{};
+    vk::UniqueDescriptorPool _desc_pool{};
+    vk::UniqueDescriptorSetLayout _global_desc_set_layout{};
     usize _pipeline_idx{};
     GraphicsPipeline _gfx_pipelines{};
 };
