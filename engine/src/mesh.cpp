@@ -16,7 +16,7 @@ glm::mat4 Mesh::transform() const {
     return translate * rotate * scale;
 }
 
-void Mesh::upload(vk::Device& device, vk::Queue& queue, UploadContext& ctx) {
+void Mesh::upload(const vk::Queue& queue, UploadContext& ctx) {
     if (_vertices.empty()) {
         spdlog::error(
             "Uploading mesh vertex buffer without vertex data is not valid"
@@ -24,7 +24,6 @@ void Mesh::upload(vk::Device& device, vk::Queue& queue, UploadContext& ctx) {
         return;
     }
     create_and_upload_buffer(
-        device,
         queue,
         ctx,
         _vertices,
@@ -33,7 +32,6 @@ void Mesh::upload(vk::Device& device, vk::Queue& queue, UploadContext& ctx) {
     );
     if (!_indices.empty()) {
         create_and_upload_buffer(
-            device,
             queue,
             ctx,
             _indices,

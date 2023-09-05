@@ -4,12 +4,13 @@
 
 #include "core.hpp"
 #include "allocator.hpp"
+#include "vk_context.hpp"
 
 namespace hc {
 
 class UploadContext {
 public:
-    explicit UploadContext(const vk::Device& device, u32 queue);
+    explicit UploadContext(u32 queue);
 
     UploadContext() = default;
     UploadContext(UploadContext&&) noexcept = default;
@@ -19,14 +20,12 @@ public:
     ~UploadContext() = default;
 
     void oneshot(
-        vk::Device& device,
-        vk::Queue& queue,
+        const vk::Queue& queue,
         std::function<void(vk::UniqueCommandBuffer&)>&& op
     );
 
     void copy_staged(
-        vk::Device& device,
-        vk::Queue& queue,
+        const vk::Queue& queue,
         AllocatedBuffer& src,
         AllocatedBuffer& dst,
         vk::DeviceSize size

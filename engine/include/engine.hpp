@@ -13,13 +13,13 @@
 #include "allocator.hpp"
 #include "camera.hpp"
 #include "core.hpp"
-#include "debug_utils.hpp"
 #include "depth_buffer.hpp"
+#include "pipeline_builder.hpp"
+#include "scene.hpp"
 #include "shader.hpp"
 #include "timer.hpp"
-#include "scene.hpp"
-#include "pipeline_builder.hpp"
 #include "uniform_buffer.hpp"
+#include "vk_context.hpp"
 
 struct GLFWwindow;
 struct GLFWmonitor;
@@ -39,14 +39,6 @@ struct PushConstants {
     glm::mat4 normal_transform{};
 };
 
-struct SwapchainData {
-    vk::Format format{};
-    vk::Extent2D extent{};
-    vk::UniqueSwapchainKHR handle{};
-    std::vector<vk::Image> images{};
-    std::vector<vk::UniqueImageView> image_views{};
-};
-
 enum class BufferingMode : usize {
     None = 1u,
     Double,
@@ -64,11 +56,6 @@ struct FrameData {
     // NOTE: this descriptor set is freed by the owning pool, and since we are
     //   not using VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, we don't
     //   need to explicitly destroy them in the cleanup method
-};
-
-struct QueueFamily {
-    u32 graphics;
-    u32 present;
 };
 
 struct WindowData {
@@ -112,19 +99,16 @@ public:
     void cycle_pipeline();
     void toggle_fullscreen();
     void on_resize();
+    void on_window_resize(i32 width, i32 height);
+    void on_window_move(i32 x, i32 y);
     void on_focus(bool focused);
     void on_mouse_move(glm::dvec2 pos);
     void on_scroll(double dx, double dy);
     void on_key_press(i32 keycode, i32 mods);
 
 private:
-    [[nodiscard]]
-    float aspect_ratio() const noexcept;
-
     void init_glfw();
     void init_vulkan();
-    void init_allocator();
-    void create_swapchain();
     void create_scene();
     void init_commands();
     void init_renderpass();
@@ -132,9 +116,6 @@ private:
     void init_descriptors();
     void create_pipelines();
     void create_sync_obj();
-    void create_instance();
-    void create_surface();
-    void create_device();
     void load_shaders();
     void recreate_swapchain();
     void destroy_swapchain();
@@ -151,17 +132,8 @@ private:
     glm::dvec2 _cursor{};
     Scene _scene{};
 
-    vk::UniqueInstance _instance{};
-    vk::UniqueDebugUtilsMessengerEXT _messenger{};
-    vk::PhysicalDevice _gpu{};
-    vk::UniqueDevice _device{};
-    VmaAllocator _allocator{};
-    ShaderMap _shaders{};
-    vk::Queue _graphics_queue{};
     UploadContext _upload_ctx{};
-    vk::UniqueSurfaceKHR _surface{};
-    QueueFamily _queue_family{};
-    SwapchainData _swapchain{};
+    ShaderMap _shaders{};
     DepthBuffer _depth_buffer{};
     vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
     vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};

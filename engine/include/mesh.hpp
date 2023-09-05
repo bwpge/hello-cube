@@ -258,7 +258,7 @@ public:
 
     [[nodiscard]]
     glm::mat4 transform() const;
-    void upload(vk::Device& device, vk::Queue& queue, UploadContext& ctx);
+    void upload(const vk::Queue& queue, UploadContext& ctx);
     void bind(vk::CommandBuffer& cmd) const;
     void draw(const vk::UniqueCommandBuffer& cmd) const;
     void draw(const vk::CommandBuffer& cmd) const;
@@ -276,8 +276,7 @@ private:
 
     template <typename T>
     void create_and_upload_buffer(
-        vk::Device& device,
-        vk::Queue& queue,
+        const vk::Queue& queue,
         UploadContext& ctx,
         std::vector<T>& src,
         vk::BufferUsageFlags usage,
@@ -318,7 +317,7 @@ private:
         );
 
         // upload to gpu buffer
-        ctx.copy_staged(device, queue, staging_buf, buffer, size);
+        ctx.copy_staged(queue, staging_buf, buffer, size);
         vmaDestroyBuffer(
             _allocator, staging_buf.buffer, staging_buf.allocation
         );

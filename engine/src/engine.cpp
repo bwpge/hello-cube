@@ -17,35 +17,14 @@ std::vector<const char*> get_extensions() {
     return result;
 }
 
-vk::Extent2D get_surface_extent(
-    vk::PhysicalDevice& device,
-    vk::SurfaceKHR& surface,
-    GLFWwindow* window
-) {
-    const auto capabilities = device.getSurfaceCapabilitiesKHR(surface);
+void window_size_callback(GLFWwindow* window, i32 width, i32 height) {
+    auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+    engine->on_window_resize(width, height);
+}
 
-    vk::Extent2D extent{};
-    if (capabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
-        extent = capabilities.currentExtent;
-    } else {
-        i32 width{};
-        i32 height{};
-        glfwGetFramebufferSize(window, &width, &height);
-        extent =
-            vk::Extent2D{static_cast<u32>(width), static_cast<u32>(height)};
-    }
-    extent.width = std::clamp(
-        extent.width,
-        capabilities.minImageExtent.width,
-        capabilities.maxImageExtent.width
-    );
-    extent.height = std::clamp(
-        extent.height,
-        capabilities.minImageExtent.height,
-        capabilities.maxImageExtent.height
-    );
-
-    return extent;
+void window_pos_callback(GLFWwindow* window, i32 x, i32 y) {
+    auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+    engine->on_window_move(x, y);
 }
 
 void window_focus_callback(GLFWwindow* window, i32 focused) {
@@ -88,7 +67,7 @@ void Engine::init() {
 
     // capture state for camera controls
     glfwGetCursorPos(_window.handle, &_cursor.x, &_cursor.y);
-    _camera = Camera{45.f, aspect_ratio(), 0.1f, 200.f};
+    _camera = Camera{45.f, VulkanContext::aspect(), 0.1f, 200.f};
     _focused = true;
 
     _is_init = true;
@@ -104,7 +83,7 @@ void Engine::run() {
         render();
     }
 
-    _device->waitIdle();
+    VulkanContext::device().waitIdle();
 }
 
 void Engine::update(double dt) {
@@ -168,20 +147,23 @@ void Engine::update(double dt) {
 
 void Engine::render() {
     // aliases to make code below a bit more readable
+    const auto& device = VulkanContext::device();
+    const auto& swapchain = VulkanContext::swapchain();
     auto& frame = _frames[_frame_idx];
     auto& cmd = frame.cmd;
+    const auto& graphics_queue = VulkanContext::graphics_queue();
     const auto& render_fence = frame.render_fence;
     const auto& render_semaphore = frame.render_semaphore;
     const auto& present_semaphore = frame.present_semaphore;
     const auto& pipeline = _gfx_pipelines.pipelines[_pipeline_idx];
 
-    if (_device->waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
+    if (device.waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
         vk::Result::eSuccess) {
         PANIC("Failed to wait for render fence");
     }
 
-    auto next = _device->acquireNextImageKHR(
-        _swapchain.handle.get(), SYNC_TIMEOUT, present_semaphore.get(), nullptr
+    auto next = device.acquireNextImageKHR(
+        swapchain.handle.get(), SYNC_TIMEOUT, present_semaphore.get(), nullptr
     );
     if (_resized || next.result == vk::Result::eErrorOutOfDateKHR ||
         next.result == vk::Result::eSuboptimalKHR) {
@@ -192,7 +174,7 @@ void Engine::render() {
     VKHPP_CHECK(next.result, "Failed to acquire next swapchain image");
 
     u32 idx = next.value;
-    _device->resetFences(render_fence.get());
+    device.resetFences(render_fence.get());
 
     cmd->reset();
     cmd->begin(vk::CommandBufferBeginInfo{
@@ -205,7 +187,7 @@ void Engine::render() {
     vk::RenderPassBeginInfo rpinfo{
         _render_pass.get(),
         _framebuffers[idx].get(),
-        vk::Rect2D{{0, 0}, _swapchain.extent},
+        vk::Rect2D{{0, 0}, swapchain.extent},
         clear,
     };
 
@@ -255,12 +237,12 @@ void Engine::render() {
         cmd.get(),
         render_semaphore.get(),
     };
-    _graphics_queue.submit(submit, render_fence.get());
+    graphics_queue.submit(submit, render_fence.get());
 
     vk::PresentInfoKHR present{
-        render_semaphore.get(), _swapchain.handle.get(), idx};
+        render_semaphore.get(), swapchain.handle.get(), idx};
     VKHPP_CHECK(
-        _graphics_queue.presentKHR(present), "Failed to present swapchain frame"
+        graphics_queue.presentKHR(present), "Failed to present swapchain frame"
     );
 
     _frame_count++;
@@ -282,9 +264,6 @@ void Engine::cleanup() {
     for (auto& frame : _frames) {
         frame.camera_ubo.destroy();
     }
-
-    spdlog::trace("Destroying allocator");
-    vmaDestroyAllocator(_allocator);
 
     spdlog::trace("Destroying window and terminating GLFW");
     if (_window.handle) {
@@ -312,6 +291,7 @@ void Engine::toggle_fullscreen() {
         return;
     }
 
+    _window.is_fullscreen = true;
     glfwWindowHint(GLFW_RED_BITS, _window.mode->redBits);
     glfwWindowHint(GLFW_GREEN_BITS, _window.mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, _window.mode->blueBits);
@@ -326,11 +306,28 @@ void Engine::toggle_fullscreen() {
         _window.mode->height,
         _window.mode->refreshRate
     );
-    _window.is_fullscreen = true;
 }
 
 void Engine::on_resize() {
     _resized = true;
+}
+
+void Engine::on_window_resize(i32 width, i32 height) {
+    if (_window.is_fullscreen || width <= 0 || height <= 0) {
+        return;
+    }
+
+    _window.width = width;
+    _window.height = height;
+}
+
+void Engine::on_window_move(i32 x, i32 y) {
+    if (_window.is_fullscreen) {
+        return;
+    }
+
+    _window.start_x = x;
+    _window.start_y = y;
 }
 
 void Engine::on_scroll(double, double dy) {
@@ -385,15 +382,6 @@ void Engine::on_mouse_move(glm::dvec2 pos) {
     _camera.rotate(dx, dy);
 }
 
-float Engine::aspect_ratio() const noexcept {
-    if (_window.height == 0) {
-        return 0.0f;
-    }
-
-    return static_cast<float>(_swapchain.extent.width) /
-           static_cast<float>(_swapchain.extent.height);
-}
-
 void Engine::init_glfw() {
     spdlog::trace("Initializing GLFW");
     glfwInit();
@@ -428,6 +416,8 @@ void Engine::init_glfw() {
     if (glfwRawMouseMotionSupported()) {
         glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     }
+    glfwSetWindowSizeCallback(_window.handle, window_size_callback);
+    glfwSetWindowPosCallback(_window.handle, window_pos_callback);
     glfwSetWindowFocusCallback(_window.handle, window_focus_callback);
     glfwSetKeyCallback(_window.handle, key_callback);
     glfwSetScrollCallback(_window.handle, scroll_callback);
@@ -438,13 +428,24 @@ void Engine::init_glfw() {
 void Engine::init_vulkan() {
     spdlog::trace("Initializing Vulkan");
 
-    create_instance();
-    create_surface();
-    create_device();
-    init_allocator();
+    vk::ApplicationInfo info{
+        "hello-cube",
+        VK_MAKE_VERSION(0, 1, 0),
+        "hc",
+        VK_MAKE_VERSION(0, 1, 0),
+        VK_API_VERSION_1_3,
+    };
+
+    // VulkanContext handles data structures that are accessed throughout the
+    // application lifetime ("static"-ish) -- e.g., instance, device, swapchain,
+    // etc. this is maybe not the best solution for thread safety, but makes a
+    // lot of things much simpler, such as allocating buffers and images (which
+    // require references to the device, queues, commands, and so on.)
+    VulkanContext::init(_window.handle, info, get_extensions());
+    _upload_ctx = UploadContext{VulkanContext::queue_families().transfer};
+
     init_commands();
     load_shaders();
-    create_swapchain();
     create_scene();
     init_renderpass();
     create_framebuffers();
@@ -453,176 +454,8 @@ void Engine::init_vulkan() {
     create_pipelines();
 }
 
-void Engine::init_allocator() {
-    VmaAllocatorCreateInfo info{};
-    info.physicalDevice = _gpu;
-    info.device = _device.get();
-    info.instance = _instance.get();
-    info.vulkanApiVersion = VK_API_VERSION_1_3;
-    vmaCreateAllocator(&info, &_allocator);
-}
-
-void Engine::create_instance() {
-    spdlog::trace("Creating Vulkan instance");
-
-    vk::ApplicationInfo ai{
-        "hello-cube",
-        VK_MAKE_VERSION(0, 1, 0),
-        "hc",
-        VK_MAKE_VERSION(0, 1, 0),
-        VK_API_VERSION_1_3,
-    };
-    vk::InstanceCreateInfo ici{{}, &ai};
-
-    auto dmci = vk::DebugUtilsMessengerCreateInfoEXT{
-        {},
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
-        hc::debug_callback,
-    };
-
-    auto extensions = get_extensions();
-    auto layers = std::vector<const char*>{
-        "VK_LAYER_KHRONOS_validation", "VK_LAYER_KHRONOS_synchronization2"};
-
-    spdlog::debug(
-        "Requested instance extensions: [{}]",
-        spdlog::fmt_lib::join(extensions, ", ")
-    );
-    spdlog::debug(
-        "Requested instance extensions: [{}]",
-        spdlog::fmt_lib::join(layers, ", ")
-    );
-
-    ici.setPEnabledExtensionNames(extensions)
-        .setPEnabledLayerNames(layers)
-        .setPNext(&dmci);
-
-    _instance = vk::createInstanceUnique(ici);
-    _messenger = _instance->createDebugUtilsMessengerEXTUnique(dmci);
-}
-
-void Engine::create_surface() {
-    spdlog::trace("Initializing window surface");
-
-    VkSurfaceKHR surface{};
-    if (glfwCreateWindowSurface(
-            _instance.get(), _window.handle, nullptr, &surface
-        ) != VK_SUCCESS) {
-        PANIC("Failed to create window surface");
-    }
-    if (surface == VK_NULL_HANDLE) {
-        PANIC("Failed to create window surface");
-    } else {
-        // https://github.com/KhronosGroup/Vulkan-Hpp/blob/e2f5348e28ba22dd9b87028f2d9bb7d556aa7b6e/samples/utils/utils.cpp#L790-L798
-        auto deleter =
-            vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(
-                _instance.get()
-            );
-        _surface = vk::UniqueSurfaceKHR{surface, deleter};
-    }
-}
-
-void Engine::create_device() {
-    spdlog::trace("Selecting physical device");
-
-    const auto devices = _instance->enumeratePhysicalDevices();
-    spdlog::debug(
-        "Found {} {}",
-        devices.size(),
-        devices.size() == 1 ? "device" : "devices"
-    );
-
-    i32 selected = -1;
-    for (i32 i = 0; i < static_cast<i32>(devices.size()); i++) {
-        auto p = devices[i].getProperties();
-        if (p.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
-            selected = i;
-            spdlog::debug(
-                "Selected device '{}'", static_cast<const char*>(p.deviceName)
-            );
-            _gpu = devices[selected];
-            break;
-        }
-    }
-    if (selected < 0) {
-        PANIC("Failed to locate a suitable device");
-    }
-
-    _gpu = devices[selected];
-
-    auto queues = _gpu.getQueueFamilyProperties();
-    auto idx_graphics = std::optional<u32>{};
-    auto idx_present = std::optional<u32>();
-    for (u32 i = 0; i < static_cast<u32>(queues.size()); i++) {
-        const auto props = queues[i];
-        const auto has_present = _gpu.getSurfaceSupportKHR(i, _surface.get());
-        if (props.queueFlags & vk::QueueFlagBits::eGraphics) {
-            idx_graphics = i;
-        }
-        if (has_present) {
-            idx_present = i;
-        }
-        if (idx_graphics.has_value() && idx_present.has_value()) {
-            break;
-        }
-    }
-    if (!idx_graphics.has_value() || !idx_present.has_value()) {
-        PANIC("Failed to locate required queue indices");
-    }
-    _queue_family.graphics = idx_graphics.value();
-    _queue_family.present = idx_present.value();
-    spdlog::debug(
-        "Located queue indices:\n    - Graphics: {}\n    - Present: {}",
-        _queue_family.graphics,
-        _queue_family.present
-    );
-
-    f32 priority = 1.0f;
-    auto unique_idx =
-        std::set<u32>{_queue_family.graphics, _queue_family.present};
-    auto infos = std::vector<vk::DeviceQueueCreateInfo>{};
-
-    for (u32 idx : unique_idx) {
-        vk::DeviceQueueCreateInfo dqci{{}, idx, 1, &priority, nullptr};
-        infos.push_back(dqci);
-    }
-
-    vk::PhysicalDeviceFeatures features{};
-    features.setFillModeNonSolid(VK_TRUE);
-
-    // https://stackoverflow.com/questions/73746051/vulkan-how-to-enable-synchronization-2-feature
-    // need to enable synchronization2 feature to use
-    // VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL
-    vk::PhysicalDeviceSynchronization2Features pdsf{};
-    pdsf.setSynchronization2(VK_TRUE);
-
-    // https://vulkan.lunarg.com/doc/view/1.3.250.1/windows/1.3-extensions/vkspec.html#VUID-VkAttachmentReference2-separateDepthStencilLayouts-03313
-    // need to enable to use VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL in depth
-    // attachment for render subpass
-    vk::PhysicalDeviceVulkan12Features pdv12f{};
-    pdv12f.setSeparateDepthStencilLayouts(VK_TRUE).setPNext(&pdsf);
-
-    vk::DeviceCreateInfo dci{};
-    auto extensions = std::vector{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    dci.setQueueCreateInfos(infos)
-        .setPEnabledFeatures(&features)
-        .setPEnabledExtensionNames(extensions)
-        .setPNext(&pdv12f);
-
-    _device = _gpu.createDeviceUnique(dci);
-    _graphics_queue = _device->getQueue(_queue_family.graphics, 0);
-    _upload_ctx = UploadContext{_device.get(), _queue_family.graphics};
-}
-
 void Engine::load_shaders() {
-    spdlog::debug("Loading shaders");
+    spdlog::trace("Loading shaders");
 
     _shaders.load("mesh", ShaderType::Vertex, "../shaders/mesh.vert.spv");
     _shaders.load("mesh", ShaderType::Fragment, "../shaders/mesh.frag.spv");
@@ -631,65 +464,10 @@ void Engine::load_shaders() {
     );
 }
 
-void Engine::create_swapchain() {
-    spdlog::trace("Creating swapchain");
-
-    const auto capabilities = _gpu.getSurfaceCapabilitiesKHR(_surface.get());
-    _swapchain.extent =
-        get_surface_extent(_gpu, _surface.get(), _window.handle);
-    _swapchain.format = vk::Format::eB8G8R8A8Unorm;
-    auto color = vk::ColorSpaceKHR::eSrgbNonlinear;
-    auto mode = vk::PresentModeKHR::eMailbox;
-
-    u32 img_count = capabilities.minImageCount + 1;
-    if (capabilities.maxImageCount > 0 &&
-        img_count > capabilities.maxImageCount) {
-        img_count = capabilities.maxImageCount;
-    }
-
-    vk::SwapchainCreateInfoKHR scci{
-        {},
-        _surface.get(),
-        img_count,
-        _swapchain.format,
-        color,
-        _swapchain.extent,
-        1,
-        vk::ImageUsageFlagBits::eColorAttachment,
-    };
-    if (_queue_family.graphics != _queue_family.present) {
-        auto indices =
-            std::vector{_queue_family.graphics, _queue_family.present};
-        scci.setImageSharingMode(vk::SharingMode::eConcurrent)
-            .setQueueFamilyIndices(indices);
-    } else {
-        scci.setImageSharingMode(vk::SharingMode::eExclusive);
-    }
-    scci.setPreTransform(capabilities.currentTransform)
-        .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
-        .setPresentMode(mode)
-        .setClipped(VK_TRUE);
-
-    _swapchain.handle = _device->createSwapchainKHRUnique(scci);
-    _swapchain.images = _device->getSwapchainImagesKHR(_swapchain.handle.get());
-
-    _swapchain.image_views.clear();
-    for (auto img : _swapchain.images) {
-        vk::ImageViewCreateInfo ivci{};
-        ivci.setImage(img)
-            .setViewType(vk::ImageViewType::e2D)
-            .setFormat(_swapchain.format)
-            .setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-        _swapchain.image_views.push_back(_device->createImageViewUnique(ivci));
-    }
-
-    _depth_buffer.destroy();
-    _depth_buffer = DepthBuffer{_allocator, _device.get(), _swapchain.extent};
-}
-
 void Engine::create_scene() {
+    VmaAllocator allocator = VulkanContext::allocator();
     {
-        auto mesh = Mesh::load_obj(_allocator, "../assets/monkey_smooth.obj");
+        auto mesh = Mesh::load_obj(allocator, "../assets/monkey_smooth.obj");
         mesh.set_translation({0.0f, 3.0f, -3.0f});
         mesh.set_scale(1.25f);
         _scene.add_mesh(std::move(mesh));
@@ -706,8 +484,8 @@ void Engine::create_scene() {
             auto color = glm::vec3{r, g, 1.0f};
 
             auto mesh = std::abs(j) % 2 == 1
-                            ? Mesh::sphere(_allocator, 0.4f, color, 36, 20)
-                            : Mesh::cube(_allocator, 0.5f, color);
+                            ? Mesh::sphere(allocator, 0.4f, color, 36, 20)
+                            : Mesh::cube(allocator, 0.5f, color);
             mesh.set_translation({x, y, z});
             mesh.set_rotation({x, 0.0f, z});
             _scene.add_mesh(std::move(mesh));
@@ -715,25 +493,27 @@ void Engine::create_scene() {
     }
 
     for (auto& mesh : _scene.meshes()) {
-        mesh.upload(_device.get(), _graphics_queue, _upload_ctx);
+        mesh.upload(VulkanContext::graphics_queue(), _upload_ctx);
     }
 }
 
 void Engine::init_commands() {
     spdlog::trace("Initializing command buffers");
+    const auto& device = VulkanContext::device();
+    const auto& queue_family = VulkanContext::queue_families();
 
     for (auto& frame : _frames) {
         vk::CommandPoolCreateInfo cpci{
             vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            _queue_family.graphics,
+            queue_family.graphics,
         };
-        frame.cmd_pool = _device->createCommandPoolUnique(cpci);
+        frame.cmd_pool = device.createCommandPoolUnique(cpci);
 
         vk::CommandBufferAllocateInfo cbai{};
         cbai.setCommandPool(frame.cmd_pool.get())
             .setCommandBufferCount(1)
             .setLevel(vk::CommandBufferLevel::ePrimary);
-        auto buffers = _device->allocateCommandBuffersUnique(cbai);
+        auto buffers = device.allocateCommandBuffersUnique(cbai);
         if (buffers.empty()) {
             PANIC("Failed to create command buffer");
         }
@@ -746,7 +526,7 @@ void Engine::init_renderpass() {
 
     vk::AttachmentDescription color_attach{
         {},
-        _swapchain.format,
+        VulkanContext::swapchain().format,
         vk::SampleCountFlagBits::e1,
         vk::AttachmentLoadOp::eClear,
         vk::AttachmentStoreOp::eStore,
@@ -809,36 +589,48 @@ void Engine::init_renderpass() {
         .setSubpasses(subpass)
         .setDependencies(dependencies);
 
-    _render_pass = _device->createRenderPassUnique(rpci);
+    _render_pass = VulkanContext::device().createRenderPassUnique(rpci);
 }
 
 void Engine::create_framebuffers() {
-    spdlog::trace("Creating framebuffers");
+    const auto& device = VulkanContext::device();
+    const auto& swapchain = VulkanContext::swapchain();
 
+    spdlog::trace("Creating depth buffer");
+    _depth_buffer.destroy();
+    _depth_buffer = DepthBuffer{
+        VulkanContext::allocator(),
+        VulkanContext::device(),
+        swapchain.extent,
+    };
+
+    spdlog::trace("Creating framebuffers");
     _framebuffers.clear();
-    for (const auto& iv : _swapchain.image_views) {
+    for (const auto& iv : swapchain.image_views) {
         auto attachments =
             std::vector<vk::ImageView>{iv.get(), _depth_buffer.image_view()};
 
         vk::FramebufferCreateInfo info{};
         info.setRenderPass(_render_pass.get())
             .setAttachments(attachments)
-            .setWidth(_swapchain.extent.width)
-            .setHeight(_swapchain.extent.height)
+            .setWidth(swapchain.extent.width)
+            .setHeight(swapchain.extent.height)
             .setLayers(1);
 
-        _framebuffers.push_back(_device->createFramebufferUnique(info));
+        _framebuffers.push_back(device.createFramebufferUnique(info));
     }
 }
 
 void Engine::init_descriptors() {
+    const auto& device = VulkanContext::device();
+
     vk::DescriptorPoolSize pool_sizes{vk::DescriptorType::eUniformBuffer, 10};
     vk::DescriptorPoolCreateInfo pool_info{};
     pool_info.setMaxSets(10)
         .setPoolSizes(pool_sizes)
         .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
 
-    _desc_pool = _device->createDescriptorPoolUnique(pool_info);
+    _desc_pool = device.createDescriptorPoolUnique(pool_info);
 
     vk::DescriptorSetLayoutBinding layout_binding{};
     layout_binding.setBinding(0)
@@ -850,11 +642,14 @@ void Engine::init_descriptors() {
     layout_info.setBindings(layout_binding);
 
     _global_desc_set_layout =
-        _device->createDescriptorSetLayoutUnique(layout_info);
+        device.createDescriptorSetLayoutUnique(layout_info);
 
     for (auto& frame : _frames) {
         // allocate ubo
-        frame.camera_ubo = UniformBufferObject{_allocator, sizeof(CameraData)};
+        frame.camera_ubo = UniformBufferObject{
+            VulkanContext::allocator(),
+            sizeof(CameraData),
+        };
 
         // allocate the descriptor sets
         vk::DescriptorSetAllocateInfo alloc_info{};
@@ -862,7 +657,7 @@ void Engine::init_descriptors() {
             .setDescriptorSetCount(1)
             .setSetLayouts(_global_desc_set_layout.get());
 
-        auto sets = _device->allocateDescriptorSets(alloc_info);
+        auto sets = device.allocateDescriptorSets(alloc_info);
         HC_ASSERT(sets.size() == 1, "Sets should contain one element");
         frame.descriptor = sets[0];
 
@@ -879,23 +674,26 @@ void Engine::init_descriptors() {
             .setDescriptorType(vk::DescriptorType::eUniformBuffer)
             .setBufferInfo(buf_info);
 
-        _device->updateDescriptorSets(set_write, nullptr);
+        device.updateDescriptorSets(set_write, nullptr);
     }
 }
 
 void Engine::create_sync_obj() {
     spdlog::trace("Creating synchronization structures");
+    const auto& device = VulkanContext::device();
 
     for (auto& frame : _frames) {
-        frame.render_fence = _device->createFenceUnique(vk::FenceCreateInfo{
+        frame.render_fence = device.createFenceUnique(vk::FenceCreateInfo{
             vk::FenceCreateFlagBits::eSignaled});
-        frame.present_semaphore = _device->createSemaphoreUnique({});
-        frame.render_semaphore = _device->createSemaphoreUnique({});
+        frame.present_semaphore = device.createSemaphoreUnique({});
+        frame.render_semaphore = device.createSemaphoreUnique({});
     }
 }
 
 void Engine::create_pipelines() {
     spdlog::trace("Creating graphics pipelines");
+    const auto& device = VulkanContext::device();
+    const auto& swapchain = VulkanContext::swapchain();
 
     // hardcoded push constants for matrices
     vk::PushConstantRange push_constant{};
@@ -909,25 +707,25 @@ void Engine::create_pipelines() {
             .add_descriptor_set_layout(_global_desc_set_layout)
             .new_pipeline()
             .add_vertex_shader(
-                _shaders.module("mesh", ShaderType::Vertex, _device)
+                _shaders.module("mesh", ShaderType::Vertex, device)
             )
             .add_fragment_shader(
-                _shaders.module("mesh", ShaderType::Fragment, _device)
+                _shaders.module("mesh", ShaderType::Fragment, device)
             )
-            .set_extent(_swapchain.extent)
+            .set_extent(swapchain.extent)
             .set_cull_mode(vk::CullModeFlagBits::eBack)
             .set_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             .new_pipeline()
             .add_vertex_shader(
-                _shaders.module("mesh", ShaderType::Vertex, _device)
+                _shaders.module("mesh", ShaderType::Vertex, device)
             )
             .add_fragment_shader(
-                _shaders.module("wireframe", ShaderType::Fragment, _device)
+                _shaders.module("wireframe", ShaderType::Fragment, device)
             )
-            .set_extent(_swapchain.extent)
+            .set_extent(swapchain.extent)
             .set_polygon_mode(vk::PolygonMode::eLine)
             .set_cull_mode(vk::CullModeFlagBits::eNone)
-            .build(_device.get(), _render_pass.get());
+            .build(device, _render_pass.get());
 }
 
 void Engine::recreate_swapchain() {
@@ -954,22 +752,15 @@ void Engine::recreate_swapchain() {
     //   - https://stackoverflow.com/questions/59825832
     //   - https://stackoverflow.com/questions/70762372
     //   - https://github.com/KhronosGroup/Vulkan-Docs/issues/1059
-    _device->waitIdle();
+    VulkanContext::device().waitIdle();
 
-    destroy_swapchain();
-    create_swapchain();
+    _framebuffers.clear();
+    VulkanContext::instance().build_swapchain(_window.handle);
     create_framebuffers();
     create_sync_obj();
     create_pipelines();
 
-    _camera.set_aspect(aspect_ratio());
-}
-
-void Engine::destroy_swapchain() {
-    _framebuffers.clear();
-    _swapchain.image_views.clear();
-    _swapchain.images.clear();
-    _swapchain.handle = {};
+    _camera.set_aspect(VulkanContext::aspect());
 }
 
 }  // namespace hc

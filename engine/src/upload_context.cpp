@@ -2,18 +2,8 @@
 
 namespace hc {
 
-void copy_staged_impl(
-    vk::CommandBuffer& cmd,
-    vk::Buffer& src,
-    vk::Buffer& dst,
-    vk::DeviceSize size
-) {
-    vk::BufferCopy copy{};
-    copy.setSize(size);
-    cmd.copyBuffer(src, dst, copy);
-}
-
-UploadContext::UploadContext(const vk::Device& device, u32 queue) {
+UploadContext::UploadContext(u32 queue) {
+    const auto& device = VulkanContext::device();
     _fence = device.createFenceUnique({});
 
     vk::CommandPoolCreateInfo pool_info{
@@ -34,10 +24,11 @@ UploadContext::UploadContext(const vk::Device& device, u32 queue) {
 }
 
 void UploadContext::oneshot(
-    vk::Device& device,
-    vk::Queue& queue,
+    const vk::Queue& queue,
     std::function<void(vk::UniqueCommandBuffer&)>&& op
 ) {
+    const auto& device = VulkanContext::device();
+
     _cmd->begin(vk::CommandBufferBeginInfo{
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     op(_cmd);
@@ -48,24 +39,23 @@ void UploadContext::oneshot(
     queue.submit(submit_info, _fence.get());
 
     VKHPP_CHECK(
-        device.waitForFences(_fence.get(), VK_TRUE, 999999999),
-        "Timed out waiting for upload context fence"
+        device.waitForFences(_fence.get(), VK_TRUE, SYNC_TIMEOUT),
+        "Timed out waiting for upload fence"
     );
     device.resetFences(_fence.get());
     device.resetCommandPool(_pool.get());
 }
 
 void UploadContext::copy_staged(
-    vk::Device& device,
-    vk::Queue& queue,
+    const vk::Queue& queue,
     AllocatedBuffer& src,
     AllocatedBuffer& dst,
     vk::DeviceSize size
 ) {
-    oneshot(device, queue, [=](vk::UniqueCommandBuffer& cmd) {
-        vk::BufferCopy copy{};
-        copy.setSize(size);
-        cmd->copyBuffer(src.buffer, dst.buffer, copy);
+    oneshot(queue, [=](vk::UniqueCommandBuffer& cmd) {
+        vk::BufferCopy region{};
+        region.setSize(size);
+        cmd->copyBuffer(src.buffer, dst.buffer, region);
     });
 }
 

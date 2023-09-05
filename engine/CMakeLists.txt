@@ -20,6 +20,7 @@ set(HCENGINE_HEADER_FILES
     "include/types.hpp"
     "include/uniform_buffer.hpp"
     "include/upload_context.hpp"
+    "include/vk_context.hpp"
 )
 
 set(HCENGINE_SRC_FILES
@@ -37,6 +38,7 @@ set(HCENGINE_SRC_FILES
     "src/timer.cpp"
     "src/uniform_buffer.cpp"
     "src/upload_context.cpp"
+    "src/vk_context.cpp"
 )
 
 add_library(${PROJECT_NAME} STATIC ${HCENGINE_HEADER_FILES};${HCENGINE_SRC_FILES})
