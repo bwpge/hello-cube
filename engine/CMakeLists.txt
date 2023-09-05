@@ -19,6 +19,7 @@ set(HCENGINE_HEADER_FILES
     "include/timer.hpp"
     "include/types.hpp"
     "include/uniform_buffer.hpp"
+    "include/upload_context.hpp"
 )
 
 set(HCENGINE_SRC_FILES
@@ -35,6 +36,7 @@ set(HCENGINE_SRC_FILES
     "src/shader.cpp"
     "src/timer.cpp"
     "src/uniform_buffer.cpp"
+    "src/upload_context.cpp"
 )
 
 add_library(${PROJECT_NAME} STATIC ${HCENGINE_HEADER_FILES};${HCENGINE_SRC_FILES})
@@ -58,6 +60,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<algorithm>"
         "<filesystem>"
         "<fstream>"
+        "<functional>"
         "<limits>"
         "<memory>"
         "<optional>"

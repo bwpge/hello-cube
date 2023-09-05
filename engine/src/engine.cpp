@@ -4,8 +4,6 @@
 
 #include "logger.hpp"
 
-#define SYNC_TIMEOUT 1000000000
-
 namespace hc {
 
 std::vector<const char*> get_extensions() {
@@ -114,12 +112,7 @@ void Engine::update(double dt) {
         return;
     }
 
-    // orbit light position around origin
-    auto l_theta = static_cast<float>(_timer.total_secs()) * glm::pi<float>();
-    auto l_x = 30.0f * glm::sin(l_theta);
-    auto l_z = 30.0f * glm::cos(l_theta);
-    _scene.set_light_pos({l_x, 3.0f, l_z});
-
+    // handle keyboard controls
     auto w = glfwGetKey(_window.handle, GLFW_KEY_W) == GLFW_PRESS;
     auto a = glfwGetKey(_window.handle, GLFW_KEY_A) == GLFW_PRESS;
     auto s = glfwGetKey(_window.handle, GLFW_KEY_S) == GLFW_PRESS;
@@ -152,10 +145,24 @@ void Engine::update(double dt) {
         _camera.move(CameraDirection::Up, dt);
     }
 
+    // handle mouse controls
     glm::dvec2 pos{};
     glfwGetCursorPos(_window.handle, &pos.x, &pos.y);
     if (pos != _cursor) {
         on_mouse_move(pos);
+    }
+
+    // DEBUG: orbiting light around origin
+    auto l_theta = static_cast<float>(_timer.total_secs()) * glm::pi<float>();
+    auto l_x = 30.0f * glm::sin(l_theta);
+    auto l_z = 30.0f * glm::cos(l_theta);
+    _scene.set_light_pos({l_x, 3.0f, l_z});
+
+    // DEBUG: rotate some meshes
+    auto t = static_cast<float>(dt);
+    auto& meshes = _scene.meshes();
+    for (u32 i = 1; i < meshes.size(); i++) {
+        meshes[i].rotate({-t, t, 0.0f});
     }
 }
 
@@ -173,19 +180,18 @@ void Engine::render() {
         PANIC("Failed to wait for render fence");
     }
 
-    auto res = _device->acquireNextImageKHR(
+    auto next = _device->acquireNextImageKHR(
         _swapchain.handle.get(), SYNC_TIMEOUT, present_semaphore.get(), nullptr
     );
-    if (_resized || res.result == vk::Result::eErrorOutOfDateKHR ||
-        res.result == vk::Result::eSuboptimalKHR) {
+    if (_resized || next.result == vk::Result::eErrorOutOfDateKHR ||
+        next.result == vk::Result::eSuboptimalKHR) {
         spdlog::debug("Window resized, re-creating swapchain");
         recreate_swapchain();
         return;
     }
-    if (res.result != vk::Result::eSuccess) {
-        PANIC("Failed to acquire next swapchain image");
-    }
-    u32 idx = res.value;
+    VKHPP_CHECK(next.result, "Failed to acquire next swapchain image");
+
+    u32 idx = next.value;
     _device->resetFences(render_fence.get());
 
     cmd->reset();
@@ -253,9 +259,9 @@ void Engine::render() {
 
     vk::PresentInfoKHR present{
         render_semaphore.get(), _swapchain.handle.get(), idx};
-    if (_graphics_queue.presentKHR(present) != vk::Result::eSuccess) {
-        PANIC("Failed to present swapchain frame");
-    }
+    VKHPP_CHECK(
+        _graphics_queue.presentKHR(present), "Failed to present swapchain frame"
+    );
 
     _frame_count++;
     _frame_idx = _frame_count % _max_frames_in_flight;
@@ -612,6 +618,7 @@ void Engine::create_device() {
 
     _device = _gpu.createDeviceUnique(dci);
     _graphics_queue = _device->getQueue(_queue_family.graphics, 0);
+    _upload_ctx = UploadContext{_device.get(), _queue_family.graphics};
 }
 
 void Engine::load_shaders() {
@@ -688,7 +695,7 @@ void Engine::create_scene() {
         _scene.add_mesh(std::move(mesh));
     }
 
-    constexpr i32 count = 20;
+    constexpr i32 count = 10;
     for (i32 i = -count; i <= count; i++) {
         for (i32 j = -count; j <= count; j++) {
             auto x = static_cast<float>(2 * i);
@@ -708,7 +715,7 @@ void Engine::create_scene() {
     }
 
     for (auto& mesh : _scene.meshes()) {
-        mesh.upload();
+        mesh.upload(_device.get(), _graphics_queue, _upload_ctx);
     }
 }
 

@@ -158,6 +158,7 @@ private:
     VmaAllocator _allocator{};
     ShaderMap _shaders{};
     vk::Queue _graphics_queue{};
+    UploadContext _upload_ctx{};
     vk::UniqueSurfaceKHR _surface{};
     QueueFamily _queue_family{};
     SwapchainData _swapchain{};

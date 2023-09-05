@@ -2,6 +2,8 @@
 
 #include <vk_mem_alloc.h>
 
+#include "core.hpp"
+
 namespace hc {
 
 struct AllocatedBuffer {
@@ -13,5 +15,10 @@ struct AllocatedImage {
     VkImage image{};
     VmaAllocation allocation{};
 };
+
+AllocatedBuffer create_staging_buffer(
+    VmaAllocator allocator,
+    vk::DeviceSize size
+);
 
 }  // namespace hc

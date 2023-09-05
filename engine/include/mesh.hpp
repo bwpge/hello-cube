@@ -8,8 +8,8 @@
 #include <tiny_obj_loader.h>
 
 #include "core.hpp"
-#include "types.hpp"
 #include "allocator.hpp"
+#include "upload_context.hpp"
 
 namespace hc {
 
@@ -258,23 +258,27 @@ public:
 
     [[nodiscard]]
     glm::mat4 transform() const;
-    void upload();
+    void upload(vk::Device& device, vk::Queue& queue, UploadContext& ctx);
     void bind(vk::CommandBuffer& cmd) const;
     void draw(const vk::UniqueCommandBuffer& cmd) const;
     void draw(const vk::CommandBuffer& cmd) const;
     void destroy();
 
+    void translate(glm::vec3 translation);
     void set_translation(glm::vec3 position);
+    void rotate(glm::vec3 rotation);
     void set_rotation(glm::vec3 rotation);
+    void scale(float scale);
     void set_scale(float scale);
 
 private:
     void destroy_buffer(AllocatedBuffer& buffer);
-    void upload_vertex_buffer();
-    void upload_index_buffer();
 
     template <typename T>
     void create_and_upload_buffer(
+        vk::Device& device,
+        vk::Queue& queue,
+        UploadContext& ctx,
         std::vector<T>& src,
         vk::BufferUsageFlags usage,
         AllocatedBuffer& buffer
@@ -282,21 +286,25 @@ private:
         const auto size =
             src.size() *
             sizeof(std::remove_reference<decltype(src)>::type::value_type);
-        spdlog::debug(
-            "Uploading Mesh buffer: size={}, usage={}",
-            size,
-            vk::to_string(usage)
+
+        // stage buffer data for upload
+        auto staging_buf = create_staging_buffer(_allocator, size);
+        void* data{};
+        VK_CHECK(
+            vmaMapMemory(_allocator, staging_buf.allocation, &data),
+            "Failed to map memory allocation"
         );
+        memcpy(data, src.data(), size);
+        vmaUnmapMemory(_allocator, staging_buf.allocation);
 
+        // create gpu-side buffer
         vk::BufferCreateInfo buffer_info{};
-        buffer_info.setSize(size).setUsage(usage);
+        buffer_info.setSize(size).setUsage(
+            usage | vk::BufferUsageFlagBits::eTransferDst
+        );
         auto vk_buffer_info = static_cast<VkBufferCreateInfo>(buffer_info);
-
         VmaAllocationCreateInfo alloc_info{};
         alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
-        alloc_info.flags =
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-
         VK_CHECK(
             vmaCreateBuffer(
                 _allocator,
@@ -309,13 +317,11 @@ private:
             "Failed to allocate mesh buffer"
         );
 
-        void* data{};
-        VK_CHECK(
-            vmaMapMemory(_allocator, buffer.allocation, &data),
-            "Failed to map memory allocation"
+        // upload to gpu buffer
+        ctx.copy_staged(device, queue, staging_buf, buffer, size);
+        vmaDestroyBuffer(
+            _allocator, staging_buf.buffer, staging_buf.allocation
         );
-        memcpy(data, src.data(), size);
-        vmaUnmapMemory(_allocator, buffer.allocation);
     }
 
     Transform _transform{};

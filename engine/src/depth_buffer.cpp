@@ -21,9 +21,8 @@ DepthBuffer::DepthBuffer(
 
     VmaAllocationCreateInfo i_alloc_info{};
     i_alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    i_alloc_info.requiredFlags = static_cast<VkMemoryPropertyFlags>(
-        vk::MemoryPropertyFlagBits::eDeviceLocal
-    );
+    i_alloc_info.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
     VK_CHECK(
         vmaCreateImage(
             _allocator,

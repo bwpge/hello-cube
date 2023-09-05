@@ -187,9 +187,7 @@ GraphicsPipeline PipelineBuilder::build(
 
     auto pipelines =
         device.createGraphicsPipelinesUnique(nullptr, pipeline_infos);
-    if (pipelines.result != vk::Result::eSuccess) {
-        PANIC("Failed to create graphics pipeline");
-    }
+    VKHPP_CHECK(pipelines.result, "Failed to create graphics pipeline");
 
     _config.clear();
     _stages.clear();
