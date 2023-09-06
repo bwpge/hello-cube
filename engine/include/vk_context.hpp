@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 #include <glfw/glfw3.h>
 
+#include "allocator.hpp"
 #include "core.hpp"
 #include "debug_utils.hpp"
 
@@ -28,7 +29,7 @@ public:
     VulkanContext(VulkanContext&&) = delete;
     void operator=(const VulkanContext&) = delete;
     VulkanContext& operator=(VulkanContext&&) = delete;
-    ~VulkanContext();
+    ~VulkanContext() = default;
 
     static VulkanContext& instance() {
         static VulkanContext instance{};
@@ -79,7 +80,7 @@ public:
     }
 
     [[nodiscard]]
-    static VmaAllocator allocator() {
+    static Allocator& allocator() {
         return instance()._allocator;
     }
 
@@ -136,7 +137,7 @@ private:
     QueueFamilyIndex _queue_family{};
     vk::Queue _graphics_queue{};
     Swapchain _swapchain{};
-    VmaAllocator _allocator{};
+    Allocator _allocator{};
 };
 
 }  // namespace hc

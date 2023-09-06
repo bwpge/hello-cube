@@ -63,15 +63,14 @@ struct Vertex {
 class Mesh {
 public:
     Mesh() = default;
-    explicit Mesh(VmaAllocator allocator);
     Mesh(const Mesh&) = delete;
     Mesh(Mesh&&) noexcept = default;
     Mesh& operator=(const Mesh&) = delete;
     Mesh& operator=(Mesh&&) noexcept = default;
     ~Mesh() = default;
 
-    static Mesh quad(VmaAllocator allocator, glm::vec3 color) {
-        auto mesh = Mesh{allocator};
+    static Mesh quad(glm::vec3 color) {
+        Mesh mesh{};
         mesh._vertices = {
             {{-0.5f, -0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
             {{0.5f, -0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
@@ -83,12 +82,8 @@ public:
         return mesh;
     }
 
-    static Mesh cube(
-        VmaAllocator allocator,
-        float size = 1.0f,
-        glm::vec3 color = {1.0f, 0.0f, 1.0f}
-    ) {
-        auto mesh = Mesh{allocator};
+    static Mesh cube(float size = 1.0f, glm::vec3 color = {1.0f, 0.0f, 1.0f}) {
+        Mesh mesh{};
         const auto s = size / 2.0f;
 
         mesh._vertices = {
@@ -144,14 +139,8 @@ public:
     }
 
     // implementation adapted from http://www.songho.ca/opengl/gl_sphere.html
-    static Mesh sphere(
-        VmaAllocator allocator,
-        float radius,
-        glm::vec3 color,
-        u32 sectors,
-        u32 stacks
-    ) {
-        auto mesh = Mesh{allocator};
+    static Mesh sphere(float radius, glm::vec3 color, u32 sectors, u32 stacks) {
+        Mesh mesh{};
 
         float d_sector = glm::two_pi<float>() / static_cast<float>(sectors);
         float d_step = glm::pi<float>() / static_cast<float>(stacks);
@@ -195,10 +184,7 @@ public:
         return mesh;
     }
 
-    static Mesh load_obj(
-        VmaAllocator allocator,
-        const std::filesystem::path& path
-    ) {
+    static Mesh load_obj(const std::filesystem::path& path) {
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
@@ -223,7 +209,6 @@ public:
         }
 
         Mesh mesh{};
-        mesh._allocator = allocator;
 
         for (auto& shape : shapes) {
             size_t offset = 0;
@@ -272,8 +257,6 @@ public:
     void set_scale(float scale);
 
 private:
-    void destroy_buffer(AllocatedBuffer& buffer);
-
     template <typename T>
     void create_and_upload_buffer(
         const vk::Queue& queue,
@@ -282,45 +265,27 @@ private:
         vk::BufferUsageFlags usage,
         AllocatedBuffer& buffer
     ) {
+        auto& allocator = VulkanContext::allocator();
         const auto size =
             src.size() *
             sizeof(std::remove_reference<decltype(src)>::type::value_type);
 
         // stage buffer data for upload
-        auto staging_buf = create_staging_buffer(_allocator, size);
-        void* data{};
-        VK_CHECK(
-            vmaMapMemory(_allocator, staging_buf.allocation, &data),
-            "Failed to map memory allocation"
-        );
-        memcpy(data, src.data(), size);
-        vmaUnmapMemory(_allocator, staging_buf.allocation);
+        auto staging_buf = allocator.create_staging_buffer(size);
+        allocator.copy_mapped(staging_buf, src.data(), size);
 
         // create gpu-side buffer
-        vk::BufferCreateInfo buffer_info{};
-        buffer_info.setSize(size).setUsage(
-            usage | vk::BufferUsageFlagBits::eTransferDst
-        );
-        auto vk_buffer_info = static_cast<VkBufferCreateInfo>(buffer_info);
-        VmaAllocationCreateInfo alloc_info{};
-        alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
-        VK_CHECK(
-            vmaCreateBuffer(
-                _allocator,
-                &vk_buffer_info,
-                &alloc_info,
-                &buffer.buffer,
-                &buffer.allocation,
-                nullptr
-            ),
-            "Failed to allocate mesh buffer"
+        auto gpu_buf = allocator.create_buffer(
+            size, usage | vk::BufferUsageFlagBits::eTransferDst
         );
 
         // upload to gpu buffer
-        ctx.copy_staged(queue, staging_buf, buffer, size);
-        vmaDestroyBuffer(
-            _allocator, staging_buf.buffer, staging_buf.allocation
-        );
+        ctx.copy_staged(queue, staging_buf, gpu_buf, size);
+        allocator.destroy(staging_buf);
+
+        // populate destination buffer
+        allocator.destroy(buffer);
+        std::swap(buffer, gpu_buf);
     }
 
     Transform _transform{};
@@ -329,7 +294,6 @@ private:
 
     AllocatedBuffer _vertex_buffer{};
     AllocatedBuffer _index_buffer{};
-    VmaAllocator _allocator{};
 };
 
 }  // namespace hc

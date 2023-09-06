@@ -33,11 +33,6 @@ vk::Extent2D get_surface_extent(
     return extent;
 }
 
-VulkanContext::~VulkanContext() {
-    spdlog::trace("Destroying Vulkan context");
-    vmaDestroyAllocator(_allocator);
-}
-
 void VulkanContext::create_instance(
     vk::ApplicationInfo app_info,
     const std::vector<const char*>& extensions
@@ -206,12 +201,7 @@ void VulkanContext::create_device() {
 }
 
 void VulkanContext::create_allocator() {
-    VmaAllocatorCreateInfo info{};
-    info.instance = _instance.get();
-    info.physicalDevice = _gpu;
-    info.device = _device.get();
-    info.vulkanApiVersion = _api_version;
-    vmaCreateAllocator(&info, &_allocator);
+    _allocator = Allocator{_instance.get(), _gpu, _device.get(), _api_version};
 }
 
 void VulkanContext::build_swapchain(GLFWwindow* window) {

@@ -3,12 +3,6 @@
 
 namespace hc {
 
-Mesh::Mesh(VmaAllocator allocator) : _allocator{allocator} {
-    if (!_allocator) {
-        PANIC("Attempted to create Mesh with null allocator handle");
-    }
-}
-
 glm::mat4 Mesh::transform() const {
     auto translate = glm::translate(glm::mat4(1.0f), _transform.translation);
     auto rotate = glm::toMat4(glm::quat(_transform.rotation));
@@ -71,8 +65,9 @@ void Mesh::draw(const vk::CommandBuffer& cmd) const {
 }
 
 void Mesh::destroy() {
-    destroy_buffer(_vertex_buffer);
-    destroy_buffer(_index_buffer);
+    auto& allocator = VulkanContext::allocator();
+    allocator.destroy(_vertex_buffer);
+    allocator.destroy(_index_buffer);
 }
 
 void Mesh::rotate(glm::vec3 rotation) {
@@ -97,12 +92,6 @@ void Mesh::scale(float scale) {
 
 void Mesh::set_scale(float scale) {
     _transform.scale = glm::vec3{scale};
-}
-
-void Mesh::destroy_buffer(AllocatedBuffer& buf) {
-    if (_allocator) {
-        vmaDestroyBuffer(_allocator, buf.buffer, buf.allocation);
-    }
 }
 
 }  // namespace hc

@@ -2,13 +2,14 @@
 
 #include "core.hpp"
 #include "allocator.hpp"
+#include "vk_context.hpp"
 
 namespace hc {
 
 class UniformBufferObject {
 public:
     UniformBufferObject() = default;
-    UniformBufferObject(VmaAllocator allocator, vk::DeviceSize size);
+    explicit UniformBufferObject(vk::DeviceSize size);
     UniformBufferObject(const UniformBufferObject&) = delete;
     UniformBufferObject(UniformBufferObject&& other) noexcept;
     UniformBufferObject& operator=(const UniformBufferObject&) = delete;
@@ -46,7 +47,6 @@ public:
     void destroy();
 
 private:
-    VmaAllocator _allocator{};
     AllocatedBuffer _buf{};
     void* _data{};
     vk::MemoryPropertyFlags _mem_props{};

@@ -465,9 +465,8 @@ void Engine::load_shaders() {
 }
 
 void Engine::create_scene() {
-    VmaAllocator allocator = VulkanContext::allocator();
     {
-        auto mesh = Mesh::load_obj(allocator, "../assets/monkey_smooth.obj");
+        auto mesh = Mesh::load_obj("../assets/monkey_smooth.obj");
         mesh.set_translation({0.0f, 3.0f, -3.0f});
         mesh.set_scale(1.25f);
         _scene.add_mesh(std::move(mesh));
@@ -483,9 +482,8 @@ void Engine::create_scene() {
             auto g = static_cast<float>(std::abs(count + j)) / (2 * count);
             auto color = glm::vec3{r, g, 1.0f};
 
-            auto mesh = std::abs(j) % 2 == 1
-                            ? Mesh::sphere(allocator, 0.4f, color, 36, 20)
-                            : Mesh::cube(allocator, 0.5f, color);
+            auto mesh = std::abs(j) % 2 == 1 ? Mesh::sphere(0.4f, color, 36, 20)
+                                             : Mesh::cube(0.5f, color);
             mesh.set_translation({x, y, z});
             mesh.set_rotation({x, 0.0f, z});
             _scene.add_mesh(std::move(mesh));
@@ -599,8 +597,6 @@ void Engine::create_framebuffers() {
     spdlog::trace("Creating depth buffer");
     _depth_buffer.destroy();
     _depth_buffer = DepthBuffer{
-        VulkanContext::allocator(),
-        VulkanContext::device(),
         swapchain.extent,
     };
 
@@ -647,7 +643,6 @@ void Engine::init_descriptors() {
     for (auto& frame : _frames) {
         // allocate ubo
         frame.camera_ubo = UniformBufferObject{
-            VulkanContext::allocator(),
             sizeof(CameraData),
         };
 

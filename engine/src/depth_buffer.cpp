@@ -2,12 +2,9 @@
 
 namespace hc {
 
-DepthBuffer::DepthBuffer(
-    VmaAllocator allocator,
-    const vk::Device& device,
-    vk::Extent2D extent
-)
-    : _allocator{allocator} {
+DepthBuffer::DepthBuffer(vk::Extent2D extent) {
+    auto& allocator = VulkanContext::allocator();
+
     vk::ImageCreateInfo ici{};
     ici.setImageType(vk::ImageType::e2D)
         .setExtent(vk::Extent3D{extent.width, extent.height, 1})
@@ -17,23 +14,14 @@ DepthBuffer::DepthBuffer(
         .setMipLevels(1)
         .setArrayLayers(1)
         .setTiling(vk::ImageTiling::eOptimal);
-    auto vk_ici = static_cast<VkImageCreateInfo>(ici);
 
-    VmaAllocationCreateInfo i_alloc_info{};
-    i_alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    i_alloc_info.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-
-    VK_CHECK(
-        vmaCreateImage(
-            _allocator,
-            &vk_ici,
-            &i_alloc_info,
-            &_image.image,
-            &_image.allocation,
-            nullptr
-        ),
-        "Failed to allocate depth buffer image"
+    auto image = allocator.create_image(
+        ici,
+        VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     );
+    allocator.destroy(_image);
+    std::swap(_image, image);
 
     vk::ImageViewCreateInfo ivci{};
     ivci.setViewType(vk::ImageViewType::e2D)
@@ -45,17 +33,11 @@ DepthBuffer::DepthBuffer(
         .setLayerCount(1)
         .setAspectMask(vk::ImageAspectFlagBits::eDepth);
 
-    _image_view = device.createImageViewUnique(ivci);
+    _image_view = VulkanContext::device().createImageViewUnique(ivci);
 }
 
 void DepthBuffer::destroy() {
-    destroy_image(_image);
-}
-
-void DepthBuffer::destroy_image(AllocatedImage& buf) {
-    if (buf.image || buf.allocation) {
-        vmaDestroyImage(_allocator, buf.image, buf.allocation);
-    }
+    VulkanContext::allocator().destroy(_image);
 }
 
 }  // namespace hc
