@@ -249,21 +249,11 @@ void Engine::render() {
     _frame_idx = _frame_count % _max_frames_in_flight;
 }
 
-void Engine::cleanup() {
+void Engine::cleanup() {  // NOLINT(readability-make-member-function-const)
     spdlog::info("Shutdown requested, cleaning up");
 
     // vulkan resource cleanup is handled by vulkan-hpp,
     // destructors are called in reverse order of declaration
-
-    _depth_buffer.destroy();
-
-    spdlog::trace("Destroying scene");
-    _scene.destroy();
-
-    spdlog::trace("Destroying frame data");
-    for (auto& frame : _frames) {
-        frame.camera_ubo.destroy();
-    }
 
     spdlog::trace("Destroying window and terminating GLFW");
     if (_window.handle) {
@@ -442,6 +432,7 @@ void Engine::init_vulkan() {
     // lot of things much simpler, such as allocating buffers and images (which
     // require references to the device, queues, commands, and so on.)
     VulkanContext::init(_window.handle, info, get_extensions());
+    spdlog::trace("Creating upload context");
     _upload_ctx = UploadContext{VulkanContext::queue_families().transfer};
 
     init_commands();
@@ -595,7 +586,6 @@ void Engine::create_framebuffers() {
     const auto& swapchain = VulkanContext::swapchain();
 
     spdlog::trace("Creating depth buffer");
-    _depth_buffer.destroy();
     _depth_buffer = DepthBuffer{
         swapchain.extent,
     };

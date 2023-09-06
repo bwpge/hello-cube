@@ -25,6 +25,10 @@ UniformBufferObject::UniformBufferObject(vk::DeviceSize size) {
     _mem_props = allocator.get_memory_property_flags(_buf);
 }
 
+UniformBufferObject::~UniformBufferObject() {
+    destroy();
+}
+
 UniformBufferObject::UniformBufferObject(UniformBufferObject&& other) noexcept {
     destroy();
     std::swap(_buf, other._buf);

@@ -2,6 +2,24 @@
 
 namespace hc {
 
+DepthBuffer::DepthBuffer(DepthBuffer&& other) noexcept {
+    std::swap(_image, other._image);
+    std::swap(_image_view, other._image_view);
+    std::swap(_format, other._format);
+}
+
+DepthBuffer& DepthBuffer::operator=(DepthBuffer&& rhs) noexcept {
+    std::swap(_image, rhs._image);
+    std::swap(_image_view, rhs._image_view);
+    std::swap(_format, rhs._format);
+
+    return *this;
+}
+
+DepthBuffer::~DepthBuffer() {
+    destroy();
+}
+
 DepthBuffer::DepthBuffer(vk::Extent2D extent) {
     auto& allocator = VulkanContext::allocator();
 
@@ -20,7 +38,6 @@ DepthBuffer::DepthBuffer(vk::Extent2D extent) {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
         VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     );
-    allocator.destroy(_image);
     std::swap(_image, image);
 
     vk::ImageViewCreateInfo ivci{};

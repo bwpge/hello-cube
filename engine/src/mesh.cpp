@@ -3,6 +3,10 @@
 
 namespace hc {
 
+Mesh::~Mesh() {
+    destroy();
+}
+
 glm::mat4 Mesh::transform() const {
     auto translate = glm::translate(glm::mat4(1.0f), _transform.translation);
     auto rotate = glm::toMat4(glm::quat(_transform.rotation));

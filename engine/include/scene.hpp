@@ -12,8 +12,6 @@ public:
         _meshes.push_back(std::forward<T>(mesh));
     }
 
-    void destroy();
-
     [[nodiscard]]
     const std::vector<Mesh>& meshes() const {
         return _meshes;

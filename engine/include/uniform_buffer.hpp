@@ -14,7 +14,7 @@ public:
     UniformBufferObject(UniformBufferObject&& other) noexcept;
     UniformBufferObject& operator=(const UniformBufferObject&) = delete;
     UniformBufferObject& operator=(UniformBufferObject&& rhs) noexcept;
-    ~UniformBufferObject() = default;
+    ~UniformBufferObject();
 
     [[nodiscard]]
     inline bool is_mapped() const {

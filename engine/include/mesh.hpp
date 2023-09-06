@@ -67,7 +67,7 @@ public:
     Mesh(Mesh&&) noexcept = default;
     Mesh& operator=(const Mesh&) = delete;
     Mesh& operator=(Mesh&&) noexcept = default;
-    ~Mesh() = default;
+    ~Mesh();
 
     static Mesh quad(glm::vec3 color) {
         Mesh mesh{};

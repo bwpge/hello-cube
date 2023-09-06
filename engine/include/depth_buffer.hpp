@@ -11,10 +11,10 @@ public:
     DepthBuffer() = default;
     explicit DepthBuffer(vk::Extent2D extent);
     DepthBuffer(const DepthBuffer&) = delete;
-    DepthBuffer(DepthBuffer&&) noexcept = default;
+    DepthBuffer(DepthBuffer&& other) noexcept;
     DepthBuffer& operator=(const DepthBuffer&) = delete;
-    DepthBuffer& operator=(DepthBuffer&&) noexcept = default;
-    ~DepthBuffer() = default;
+    DepthBuffer& operator=(DepthBuffer&& rhs) noexcept;
+    ~DepthBuffer();
 
     [[nodiscard]]
     inline vk::Format format() const {
