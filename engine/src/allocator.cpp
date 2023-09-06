@@ -1,7 +1,7 @@
 #define VMA_IMPLEMENTATION
 #include "allocator.hpp"
 
-namespace hc {
+namespace hvk {
 
 Allocator::Allocator(
     const vk::Instance& instance,
@@ -16,7 +16,7 @@ Allocator::Allocator(
     info.vulkanApiVersion = api_version;
     vmaCreateAllocator(&info, &_allocator);
 
-    HC_ASSERT(_allocator, "VMA failed to create allocator");
+    HVK_ASSERT(_allocator, "VMA failed to create allocator");
 }
 
 Allocator::Allocator(Allocator&& other) noexcept {
@@ -139,4 +139,4 @@ void Allocator::destroy_inner() {
     }
 }
 
-}  // namespace hc
+}  // namespace hvk

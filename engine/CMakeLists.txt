@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.27)
-project(hclib VERSION 0.1.0)
+project(hvklib VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(HCENGINE_HEADER_FILES
+set(ENGINE_HEADER_FILES
     "include/allocator.hpp"
     "include/camera.hpp"
     "include/core.hpp"
     "include/debug_utils.hpp"
     "include/depth_buffer.hpp"
     "include/engine.hpp"
-    "include/hello_cube.hpp"
+    "include/hello_vulkan.hpp"
     "include/pipeline_builder.hpp"
     "include/mesh.hpp"
     "include/scene.hpp"
@@ -23,7 +23,7 @@ set(HCENGINE_HEADER_FILES
     "include/vk_context.hpp"
 )
 
-set(HCENGINE_SRC_FILES
+set(ENGINE_SRC_FILES
     "src/allocator.cpp"
     "src/camera.cpp"
     "src/debug_utils.cpp"
@@ -41,8 +41,8 @@ set(HCENGINE_SRC_FILES
     "src/vk_context.cpp"
 )
 
-add_library(${PROJECT_NAME} STATIC ${HCENGINE_HEADER_FILES};${HCENGINE_SRC_FILES})
-add_library(hclib::hclib ALIAS hclib)
+add_library(${PROJECT_NAME} STATIC ${ENGINE_HEADER_FILES};${ENGINE_SRC_FILES})
+add_library(hvklib::hvklib ALIAS hvklib)
 
 # compiler specific options
 if(MSVC)
@@ -139,7 +139,7 @@ foreach(SHADER_SRC IN LISTS SHADER_SRC_FILES)
     list(APPEND SPV_SHADERS "${SPV_SHADER}")
 endforeach()
 add_custom_target(compile-shaders ALL DEPENDS ${SPV_SHADERS})
-add_dependencies(hclib compile-shaders)
+add_dependencies(hvklib compile-shaders)
 
 set(MODEL_SRC_DIR "${CMAKE_SOURCE_DIR}/assets")
 set(MODEL_OUT_DIR "${CMAKE_BINARY_DIR}/assets")
@@ -147,9 +147,9 @@ add_custom_target(copy-assets
     COMMAND
     ${CMAKE_COMMAND} -E copy_directory ${MODEL_SRC_DIR} ${MODEL_OUT_DIR}
 )
-add_dependencies(hclib copy-assets)
+add_dependencies(hvklib copy-assets)
 
-target_compile_definitions(hclib
+target_compile_definitions(hvklib
     PUBLIC
         GLM_FORCE_DEPTH_ZERO_TO_ONE
         GLM_ENABLE_EXPERIMENTAL

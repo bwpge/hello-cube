@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace hc {
+namespace hvk {
 
 using i8 = int8_t;
 using i16 = int16_t;
@@ -18,4 +18,4 @@ using usize = size_t;
 using f32 = float;
 using f64 = double;
 
-}  // namespace hc
+}  // namespace hvk

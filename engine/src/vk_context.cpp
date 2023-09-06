@@ -1,6 +1,6 @@
 #include "vk_context.hpp"
 
-namespace hc {
+namespace hvk {
 
 vk::Extent2D get_surface_extent(
     vk::PhysicalDevice& gpu,
@@ -49,7 +49,7 @@ void VulkanContext::create_instance(
             vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
             vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
             vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
-        hc::debug_callback,
+        debug_callback,
     };
 
     auto layers = std::vector<const char*>{
@@ -257,4 +257,4 @@ void VulkanContext::build_swapchain(GLFWwindow* window) {
     }
 }
 
-}  // namespace hc
+}  // namespace hvk

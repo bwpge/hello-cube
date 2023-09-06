@@ -6,7 +6,7 @@
 
 #include "core.hpp"
 
-namespace hc {
+namespace hvk {
 
 enum class CameraDirection {
     Forward,
@@ -81,4 +81,4 @@ private:
     float _zoom_speed{5.f};
 };
 
-}  // namespace hc
+}  // namespace hvk

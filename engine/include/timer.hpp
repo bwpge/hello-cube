@@ -2,7 +2,7 @@
 
 #include <chrono>
 
-namespace hc {
+namespace hvk {
 
 class Timer {
 public:
@@ -23,4 +23,4 @@ private:
     Instant _last{};
 };
 
-}  // namespace hc
+}  // namespace hvk

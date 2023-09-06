@@ -6,7 +6,7 @@
 #include "allocator.hpp"
 #include "vk_context.hpp"
 
-namespace hc {
+namespace hvk {
 
 class UploadContext {
 public:
@@ -37,4 +37,4 @@ private:
     vk::UniqueCommandBuffer _cmd{};
 };
 
-}  // namespace hc
+}  // namespace hvk

@@ -18,7 +18,7 @@
         throw std::runtime_error(msg);                                  \
     } while (0)
 
-#define HC_ASSERT(expr, msg)                                         \
+#define HVK_ASSERT(expr, msg)                                        \
     do {                                                             \
         if (!(expr)) {                                               \
             spdlog::error("FAILED ASSERTION `{}`", STRINGIFY(expr)); \

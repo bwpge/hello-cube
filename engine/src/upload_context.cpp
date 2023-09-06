@@ -1,6 +1,6 @@
 #include "upload_context.hpp"
 
-namespace hc {
+namespace hvk {
 
 UploadContext::UploadContext(u32 queue) {
     const auto& device = VulkanContext::device();
@@ -17,7 +17,7 @@ UploadContext::UploadContext(u32 queue) {
         .setCommandBufferCount(1)
         .setLevel(vk::CommandBufferLevel::ePrimary);
     auto buffers = device.allocateCommandBuffersUnique(alloc_info);
-    HC_ASSERT(
+    HVK_ASSERT(
         buffers.size() == 1, "Should have allocated exactly one command buffer"
     );
     _cmd = std::move(buffers[0]);
@@ -59,4 +59,4 @@ void UploadContext::copy_staged(
     });
 }
 
-}  // namespace hc
+}  // namespace hvk

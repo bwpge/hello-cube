@@ -1,7 +1,7 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "mesh.hpp"
 
-namespace hc {
+namespace hvk {
 
 Mesh::~Mesh() {
     destroy();
@@ -40,14 +40,14 @@ void Mesh::upload(const vk::Queue& queue, UploadContext& ctx) {
 }
 
 void Mesh::bind(vk::CommandBuffer& cmd) const {
-    HC_ASSERT(
+    HVK_ASSERT(
         _vertex_buffer.buffer, "Cannot bind mesh vertex buffer with null handle"
     );
     vk::Buffer vb{_vertex_buffer.buffer};
     cmd.bindVertexBuffers(0, vb, {0});
 
     if (!_indices.empty()) {
-        HC_ASSERT(
+        HVK_ASSERT(
             _index_buffer.buffer,
             "Cannot bind mesh index buffer with null handle"
         );
@@ -98,4 +98,4 @@ void Mesh::set_scale(float scale) {
     _transform.scale = glm::vec3{scale};
 }
 
-}  // namespace hc
+}  // namespace hvk

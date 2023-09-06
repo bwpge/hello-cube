@@ -1,6 +1,6 @@
 #include "depth_buffer.hpp"
 
-namespace hc {
+namespace hvk {
 
 DepthBuffer::DepthBuffer(DepthBuffer&& other) noexcept {
     std::swap(_image, other._image);
@@ -57,4 +57,4 @@ void DepthBuffer::destroy() {
     VulkanContext::allocator().destroy(_image);
 }
 
-}  // namespace hc
+}  // namespace hvk

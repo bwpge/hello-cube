@@ -3,7 +3,7 @@
 #include <vulkan/vulkan.hpp>
 #include <spdlog/spdlog.h>
 
-namespace hc {
+namespace hvk {
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -12,4 +12,4 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     void* user_data
 );
 
-}  // namespace hc
+}  // namespace hvk

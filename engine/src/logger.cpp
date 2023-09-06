@@ -1,7 +1,7 @@
 #include "logger.hpp"
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace hc {
+namespace hvk {
 
 void configure_logger() {
     auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -32,4 +32,4 @@ void configure_logger() {
     spdlog::set_default_logger(logger);
 }
 
-}  // namespace hc
+}  // namespace hvk

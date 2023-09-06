@@ -7,7 +7,7 @@
 #include "core.hpp"
 #include "debug_utils.hpp"
 
-namespace hc {
+namespace hvk {
 
 struct QueueFamilyIndex {
     u32 graphics{};
@@ -140,4 +140,4 @@ private:
     Allocator _allocator{};
 };
 
-}  // namespace hc
+}  // namespace hvk

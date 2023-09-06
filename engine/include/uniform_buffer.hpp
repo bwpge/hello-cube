@@ -4,7 +4,7 @@
 #include "allocator.hpp"
 #include "vk_context.hpp"
 
-namespace hc {
+namespace hvk {
 
 class UniformBufferObject {
 public:
@@ -52,4 +52,4 @@ private:
     vk::MemoryPropertyFlags _mem_props{};
 };
 
-}  // namespace hc
+}  // namespace hvk

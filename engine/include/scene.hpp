@@ -3,7 +3,7 @@
 #include "core.hpp"
 #include "mesh.hpp"
 
-namespace hc {
+namespace hvk {
 
 class Scene {
 public:
@@ -36,4 +36,4 @@ private:
     glm::vec3 _light_pos{};
 };
 
-}  // namespace hc
+}  // namespace hvk

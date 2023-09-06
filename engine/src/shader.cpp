@@ -1,6 +1,6 @@
 #include "shader.hpp"
 
-namespace hc {
+namespace hvk {
 
 vk::UniqueShaderModule Shader::module(const vk::UniqueDevice& device) const {
     return module(device.get());
@@ -24,7 +24,7 @@ void ShaderMap::load(
 
 void ShaderMap::remove(const Key key, ShaderType type) {
     auto& map = get_by_name(type);
-    HC_ASSERT(_vertex.contains(key), "");
+    HVK_ASSERT(_vertex.contains(key), "");
     map.erase(key);
 }
 
@@ -33,4 +33,4 @@ const Shader& ShaderMap::get(const Key key, ShaderType type) {
     return map.at(key);
 }
 
-}  // namespace hc
+}  // namespace hvk

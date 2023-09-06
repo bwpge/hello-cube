@@ -1,6 +1,6 @@
 #include "timer.hpp"
 
-namespace hc {
+namespace hvk {
 
 Timer::Timer() {
     reset();
@@ -38,4 +38,4 @@ double Timer::total_ms() {
     return millis.count();
 }
 
-}  // namespace hc
+}  // namespace hvk

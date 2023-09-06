@@ -8,7 +8,7 @@
 
 #include "core.hpp"
 
-namespace hc {
+namespace hvk {
 
 class Shader {
 public:
@@ -97,4 +97,4 @@ private:
     Map _fragment{};
 };
 
-}  // namespace hc
+}  // namespace hvk

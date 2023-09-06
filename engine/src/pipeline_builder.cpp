@@ -1,11 +1,11 @@
 #include "pipeline_builder.hpp"
 
-namespace hc {
+namespace hvk {
 
 std::vector<vk::PipelineShaderStageCreateInfo> build_shader_stage_info(
     const PipelineConfig& config
 ) {
-    HC_ASSERT(
+    HVK_ASSERT(
         config.stage_flags.size() == config.shaders.size(),
         "number of stage_flags should always equal number of shaders"
     );
@@ -198,4 +198,4 @@ GraphicsPipeline PipelineBuilder::build(
     return result;
 }
 
-}  // namespace hc
+}  // namespace hvk

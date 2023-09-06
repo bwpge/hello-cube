@@ -28,7 +28,9 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
     }
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL hc::debug_callback(
+namespace hvk {
+
+VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     VkDebugUtilsMessageTypeFlagsEXT type,
     VkDebugUtilsMessengerCallbackDataEXT const* cb_data,
@@ -63,3 +65,5 @@ VKAPI_ATTR VkBool32 VKAPI_CALL hc::debug_callback(
 
     return VK_FALSE;
 }
+
+}  // namespace hvk

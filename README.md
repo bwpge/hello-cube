@@ -1,4 +1,4 @@
-# hello-cube
+# hello-vulkan
 
 A [Vulkan](https://www.vulkan.org/) hello world project, written in C++.
 

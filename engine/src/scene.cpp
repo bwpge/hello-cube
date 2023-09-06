@@ -1,3 +1,3 @@
 #include "scene.hpp"
 
-namespace hc {}  // namespace hc
+namespace hvk {}  // namespace hvk

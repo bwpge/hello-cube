@@ -1,10 +1,10 @@
 #include <memory>
 
-#include "hello_cube.hpp"
+#include "hello_vulkan.hpp"
 
 int main() {
-    auto engine = std::make_unique<hc::Engine>(
-        "Hello Cube", 1920, 1080, hc::BufferingMode::Double
+    auto engine = std::make_unique<hvk::Engine>(
+        "Hello Vulkan", 1920, 1080, hvk::BufferingMode::Double
     );
 
     try {

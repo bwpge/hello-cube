@@ -7,7 +7,7 @@
 
 #include "core.hpp"
 
-namespace hc {
+namespace hvk {
 
 struct AllocatedBuffer {
     VkBuffer buffer{};
@@ -61,7 +61,7 @@ public:
     vk::MemoryPropertyFlags get_memory_property_flags(const T& buf) {
         VkMemoryPropertyFlags flags{};
         vmaGetAllocationMemoryProperties(_allocator, buf.allocation, &flags);
-        HC_ASSERT(
+        HVK_ASSERT(
             flags != 0,
             "`vmaGetAllocationMemoryProperties` failed to get property flags"
         );
@@ -108,4 +108,4 @@ AllocatedBuffer create_staging_buffer(
     vk::DeviceSize size
 );
 
-}  // namespace hc
+}  // namespace hvk

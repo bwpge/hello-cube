@@ -20,8 +20,8 @@
 #define COMMON_LVB_UNDERSCORE 0x8000
 #endif  // _WIN32
 
-namespace hc {
+namespace hvk {
 
 void configure_logger();
 
-}  // namespace hc
+}  // namespace hvk

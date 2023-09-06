@@ -6,7 +6,7 @@
 #include "mesh.hpp"
 #include "shader.hpp"
 
-namespace hc {
+namespace hvk {
 
 struct GraphicsPipeline {
     vk::UniquePipelineLayout layout;
@@ -54,4 +54,4 @@ private:
     std::vector<vk::DescriptorSetLayout> _desc_set_layouts{};
 };
 
-}  // namespace hc
+}  // namespace hvk

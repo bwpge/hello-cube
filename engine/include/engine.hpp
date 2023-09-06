@@ -25,7 +25,7 @@ struct GLFWwindow;
 struct GLFWmonitor;
 struct GLFWvidmode;
 
-namespace hc {
+namespace hvk {
 
 struct CameraData {
     glm::mat4 proj;
@@ -146,4 +146,4 @@ private:
     GraphicsPipeline _gfx_pipelines{};
 };
 
-}  // namespace hc
+}  // namespace hvk

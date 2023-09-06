@@ -1,6 +1,6 @@
 #include "uniform_buffer.hpp"
 
-namespace hc {
+namespace hvk {
 
 UniformBufferObject::UniformBufferObject(vk::DeviceSize size) {
     auto& allocator = VulkanContext::allocator();
@@ -19,7 +19,7 @@ UniformBufferObject::UniformBufferObject(vk::DeviceSize size) {
     _buf = buffer;
 
     _data = allocation_info.pMappedData;
-    HC_ASSERT(
+    HVK_ASSERT(
         _data, "Persistent memory mapping failed (mapping was a null pointer)"
     );
     _mem_props = allocator.get_memory_property_flags(_buf);
@@ -54,4 +54,4 @@ void UniformBufferObject::destroy() {
     VulkanContext::allocator().destroy(_buf);
 }
 
-}  // namespace hc
+}  // namespace hvk

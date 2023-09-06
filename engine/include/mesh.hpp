@@ -11,7 +11,7 @@
 #include "allocator.hpp"
 #include "upload_context.hpp"
 
-namespace hc {
+namespace hvk {
 
 struct Transform {
     glm::vec3 translation{0.0f};
@@ -296,4 +296,4 @@ private:
     AllocatedBuffer _index_buffer{};
 };
 
-}  // namespace hc
+}  // namespace hvk

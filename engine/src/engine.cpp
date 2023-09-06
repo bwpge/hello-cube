@@ -4,7 +4,7 @@
 
 #include "logger.hpp"
 
-namespace hc {
+namespace hvk {
 
 std::vector<const char*> get_extensions() {
     u32 count{};
@@ -419,9 +419,9 @@ void Engine::init_vulkan() {
     spdlog::trace("Initializing Vulkan");
 
     vk::ApplicationInfo info{
-        "hello-cube",
+        "hello-vulkan",
         VK_MAKE_VERSION(0, 1, 0),
-        "hc",
+        "hvklib",
         VK_MAKE_VERSION(0, 1, 0),
         VK_API_VERSION_1_3,
     };
@@ -643,7 +643,7 @@ void Engine::init_descriptors() {
             .setSetLayouts(_global_desc_set_layout.get());
 
         auto sets = device.allocateDescriptorSets(alloc_info);
-        HC_ASSERT(sets.size() == 1, "Sets should contain one element");
+        HVK_ASSERT(sets.size() == 1, "Sets should contain one element");
         frame.descriptor = sets[0];
 
         // bind the appropriate buffers
@@ -748,4 +748,4 @@ void Engine::recreate_swapchain() {
     _camera.set_aspect(VulkanContext::aspect());
 }
 
-}  // namespace hc
+}  // namespace hvk

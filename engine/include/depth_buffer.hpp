@@ -4,7 +4,7 @@
 #include "allocator.hpp"
 #include "vk_context.hpp"
 
-namespace hc {
+namespace hvk {
 
 class DepthBuffer {
 public:
@@ -33,4 +33,4 @@ private:
     vk::Format _format{vk::Format::eD32Sfloat};
 };
 
-}  // namespace hc
+}  // namespace hvk

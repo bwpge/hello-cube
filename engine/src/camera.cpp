@@ -1,6 +1,6 @@
 #include "camera.hpp"
 
-namespace hc {
+namespace hvk {
 
 glm::mat4 Camera::view() const {
     return glm::lookAt(_pos, _pos + _front, _up);
@@ -97,4 +97,4 @@ void Camera::zoom(ZoomDirection direction, double dt) {
     spdlog::debug("[camera] Zoom: fov={}", _fov);
 }
 
-}  // namespace hc
+}  // namespace hvk
