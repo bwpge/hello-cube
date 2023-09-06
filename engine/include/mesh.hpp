@@ -244,7 +244,8 @@ public:
     [[nodiscard]]
     glm::mat4 transform() const;
     void upload(const vk::Queue& queue, UploadContext& ctx);
-    void bind(vk::CommandBuffer& cmd) const;
+    void bind(const vk::UniqueCommandBuffer& cmd) const;
+    void bind(const vk::CommandBuffer& cmd) const;
     void draw(const vk::UniqueCommandBuffer& cmd) const;
     void draw(const vk::CommandBuffer& cmd) const;
     void destroy();

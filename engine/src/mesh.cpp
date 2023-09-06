@@ -39,7 +39,11 @@ void Mesh::upload(const vk::Queue& queue, UploadContext& ctx) {
     }
 }
 
-void Mesh::bind(vk::CommandBuffer& cmd) const {
+void Mesh::bind(const vk::UniqueCommandBuffer& cmd) const {
+    bind(cmd.get());
+}
+
+void Mesh::bind(const vk::CommandBuffer& cmd) const {
     HVK_ASSERT(
         _vertex_buffer.buffer, "Cannot bind mesh vertex buffer with null handle"
     );

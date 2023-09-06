@@ -222,7 +222,7 @@ void Engine::render() {
             sizeof(PushConstants),
             &constants
         );
-        mesh.bind(cmd.get());
+        mesh.bind(cmd);
         mesh.draw(cmd);
     }
 
