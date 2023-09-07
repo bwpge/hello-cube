@@ -1,9 +1,15 @@
 #pragma once
 
 #include "core.hpp"
+#include "allocator.hpp"
 #include "mesh.hpp"
 
 namespace hvk {
+
+struct SceneData {
+    glm::vec4 light_color;
+    glm::vec4 light_dir;
+};
 
 class Scene {
 public:
@@ -13,27 +19,23 @@ public:
     }
 
     [[nodiscard]]
-    const std::vector<Mesh>& meshes() const {
-        return _meshes;
-    }
-
+    const std::vector<Mesh>& meshes() const;
     [[nodiscard]]
-    std::vector<Mesh>& meshes() {
-        return _meshes;
-    }
-
+    std::vector<Mesh>& meshes();
     [[nodiscard]]
-    inline glm::vec3 light_pos() const {
-        return _light_pos;
-    }
-
-    inline void set_light_pos(const glm::vec3& light_pos) {
-        _light_pos = light_pos;
-    }
+    glm::vec3 light_dir() const;
+    void set_light_dir(const glm::vec3& direction);
+    [[nodiscard]]
+    glm::vec3 light_color() const;
+    void set_light_color(const glm::vec3& color);
+    [[nodiscard]]
+    SceneData data() const;
 
 private:
     std::vector<Mesh> _meshes{};
-    glm::vec3 _light_pos{};
+    glm::vec3 _dir{glm::normalize(glm::vec3{0.0f, 1.0f, 1.0f})};
+    glm::vec3 _color{1.0f};
+    AllocatedBuffer _buf{};
 };
 
 }  // namespace hvk

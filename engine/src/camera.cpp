@@ -14,48 +14,40 @@ glm::mat4 Camera::view_projection() const {
     return projection() * view();
 }
 
-glm::vec3 Camera::translation() const {
-    return _pos;
+CameraData Camera::data() const {
+    return {
+        projection(),
+        view(),
+        view_projection(),
+        _pos,
+    };
 }
 
 void Camera::set_aspect(float aspect) {
     _aspect = aspect;
 }
 
-void Camera::set_translation(glm::vec3 pos) {
-    _pos = pos;
-}
-
 void Camera::set_sprint(bool on) {
     _sprint = on;
 }
 
-void Camera::rotate(double dx, double dy) {
-    auto up_sign = (_up[1] > 0.0f ? -1.0f : 1.0f);
-    _yaw += up_sign * static_cast<float>(dx) * _rotation_speed;
-    if (_yaw < -180.f) {
-        _yaw += 360.f;
-    }
-    if (_yaw > 180.f) {
-        _yaw -= 360.f;
-    }
-    _pitch += static_cast<float>(dy) * _rotation_speed;
-    _pitch = std::clamp(_pitch, -85.f, 85.f);
-
-    auto rotation =
-        glm::quat{glm::vec3{glm::radians(_pitch), glm::radians(_yaw), 0.f}};
-    _front = glm::normalize(rotation * glm::vec3{0.f, 0.f, 1.f});
-    spdlog::debug(
-        "[camera] Rotate: yaw={}, pitch={}, front=[{}, {}, {}]",
-        _yaw,
-        _pitch,
-        _front.x,
-        _front.y,
-        _front.z
-    );
+void Camera::reset() {
+    _pos = {0.f, 0.f, 5.f};
+    _pitch = 0.f;
+    _yaw = -180.f;
+    _fov = 45.f;
+    _front = {0.f, 0.f, -1.f};
 }
 
-void Camera::move(CameraDirection direction, double dt) {
+glm::vec3 Camera::translation() const {
+    return _pos;
+}
+
+void Camera::set_translation(glm::vec3 pos) {
+    _pos = pos;
+}
+
+void Camera::translate(CameraDirection direction, double dt) {
     auto amount = _speed * static_cast<float>(dt);
     if (_sprint) {
         amount *= 4.0f;
@@ -88,6 +80,31 @@ void Camera::move(CameraDirection direction, double dt) {
             break;
     }
     spdlog::debug("[camera] Move: pos=[{}, {}, {}]", _pos.x, _pos.y, _pos.z);
+}
+
+void Camera::rotate(double dx, double dy) {
+    auto up_sign = (_up[1] > 0.0f ? -1.0f : 1.0f);
+    _yaw += up_sign * static_cast<float>(dx) * _rotation_speed;
+    if (_yaw < -180.f) {
+        _yaw += 360.f;
+    }
+    if (_yaw > 180.f) {
+        _yaw -= 360.f;
+    }
+    _pitch += static_cast<float>(dy) * _rotation_speed;
+    _pitch = std::clamp(_pitch, -85.f, 85.f);
+
+    auto rotation =
+        glm::quat{glm::vec3{glm::radians(_pitch), glm::radians(_yaw), 0.f}};
+    _front = glm::normalize(rotation * glm::vec3{0.f, 0.f, 1.f});
+    spdlog::debug(
+        "[camera] Rotate: yaw={}, pitch={}, front=[{}, {}, {}]",
+        _yaw,
+        _pitch,
+        _front.x,
+        _front.y,
+        _front.z
+    );
 }
 
 void Camera::zoom(ZoomDirection direction, double dt) {

@@ -106,22 +106,22 @@ void Engine::update(double dt) {
         _camera.set_sprint(false);
     }
     if (w) {
-        _camera.move(CameraDirection::Forward, dt);
+        _camera.translate(CameraDirection::Forward, dt);
     }
     if (a) {
-        _camera.move(CameraDirection::Left, dt);
+        _camera.translate(CameraDirection::Left, dt);
     }
     if (s) {
-        _camera.move(CameraDirection::Backward, dt);
+        _camera.translate(CameraDirection::Backward, dt);
     }
     if (d) {
-        _camera.move(CameraDirection::Right, dt);
+        _camera.translate(CameraDirection::Right, dt);
     }
     if (alt) {
-        _camera.move(CameraDirection::Down, dt);
+        _camera.translate(CameraDirection::Down, dt);
     }
     if (space) {
-        _camera.move(CameraDirection::Up, dt);
+        _camera.translate(CameraDirection::Up, dt);
     }
 
     // handle mouse controls
@@ -130,12 +130,6 @@ void Engine::update(double dt) {
     if (pos != _cursor) {
         on_mouse_move(pos);
     }
-
-    // DEBUG: orbiting light around origin
-    auto l_theta = static_cast<float>(_timer.total_secs()) * glm::pi<float>();
-    auto l_x = 30.0f * glm::sin(l_theta);
-    auto l_z = 30.0f * glm::cos(l_theta);
-    _scene.set_light_pos({l_x, 3.0f, l_z});
 
     // DEBUG: rotate some meshes
     auto t = static_cast<float>(dt);
@@ -193,20 +187,17 @@ void Engine::render() {
 
     cmd->beginRenderPass(rpinfo, vk::SubpassContents::eInline);
     cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+
+    // bind descriptor sets
     cmd->bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
         _gfx_pipelines.layout.get(),
         0,
         frame.descriptor,
-        nullptr
+        _scene_ubo.dyn_offset(_frame_idx)
     );
 
-    CameraData camera{
-        _camera.projection(),
-        _camera.view(),
-        _camera.view_projection(),
-        _scene.light_pos(),
-    };
+    auto camera = _camera.data();
     frame.camera_ubo.update(&camera);
 
     for (const auto& mesh : _scene.meshes()) {
@@ -260,6 +251,7 @@ void Engine::cleanup() {  // NOLINT(readability-make-member-function-const)
         glfwDestroyWindow(_window.handle);
     }
     glfwTerminate();
+    _is_init = false;
 }
 
 void Engine::cycle_pipeline() {
@@ -456,6 +448,14 @@ void Engine::load_shaders() {
 }
 
 void Engine::create_scene() {
+    auto ubo_alignment = UniformBuffer::pad_alignment(sizeof(SceneData));
+    auto padded_size = ubo_alignment * _max_frames_in_flight;
+    _scene_ubo = UniformBuffer{sizeof(SceneData), padded_size};
+    for (u32 i = 0; i < _max_frames_in_flight; i++) {
+        auto data = _scene.data();
+        _scene_ubo.update_indexed(&data, i);
+    }
+
     {
         auto mesh = Mesh::load_obj("../assets/monkey_smooth.obj");
         mesh.set_translation({0.0f, 3.0f, -3.0f});
@@ -610,31 +610,41 @@ void Engine::create_framebuffers() {
 void Engine::init_descriptors() {
     const auto& device = VulkanContext::device();
 
-    vk::DescriptorPoolSize pool_sizes{vk::DescriptorType::eUniformBuffer, 10};
+    std::vector<vk::DescriptorPoolSize> pool_sizes{
+        {vk::DescriptorType::eUniformBuffer, 10},
+        {vk::DescriptorType::eUniformBufferDynamic, 10},
+    };
     vk::DescriptorPoolCreateInfo pool_info{};
-    pool_info.setMaxSets(10)
-        .setPoolSizes(pool_sizes)
-        .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
-
+    pool_info.setMaxSets(10).setPoolSizes(pool_sizes);
     _desc_pool = device.createDescriptorPoolUnique(pool_info);
 
-    vk::DescriptorSetLayoutBinding layout_binding{};
-    layout_binding.setBinding(0)
+    vk::DescriptorSetLayoutBinding camera_binding{};
+    camera_binding.setBinding(0)
         .setDescriptorCount(1)
         .setStageFlags(vk::ShaderStageFlagBits::eVertex)
         .setDescriptorType(vk::DescriptorType::eUniformBuffer);
+    vk::DescriptorSetLayoutBinding scene_binding{};
+    scene_binding.setBinding(1)
+        .setDescriptorCount(1)
+        .setStageFlags(
+            vk::ShaderStageFlagBits::eVertex |
+            vk::ShaderStageFlagBits::eFragment
+        )
+        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
+    std::vector<vk::DescriptorSetLayoutBinding> bindings{
+        camera_binding,
+        scene_binding,
+    };
 
     vk::DescriptorSetLayoutCreateInfo layout_info = {};
-    layout_info.setBindings(layout_binding);
+    layout_info.setBindings(bindings);
 
     _global_desc_set_layout =
         device.createDescriptorSetLayoutUnique(layout_info);
 
     for (auto& frame : _frames) {
         // allocate ubo
-        frame.camera_ubo = UniformBufferObject{
-            sizeof(CameraData),
-        };
+        frame.camera_ubo = UniformBuffer{sizeof(CameraData)};
 
         // allocate the descriptor sets
         vk::DescriptorSetAllocateInfo alloc_info{};
@@ -643,23 +653,28 @@ void Engine::init_descriptors() {
             .setSetLayouts(_global_desc_set_layout.get());
 
         auto sets = device.allocateDescriptorSets(alloc_info);
-        HVK_ASSERT(sets.size() == 1, "Sets should contain one element");
+        HVK_ASSERT(
+            sets.size() == 1, "Allocation should create one descriptor set"
+        );
         frame.descriptor = sets[0];
 
-        // bind the appropriate buffers
-        vk::DescriptorBufferInfo buf_info{};
-        buf_info.setBuffer(frame.camera_ubo.buffer())
-            .setOffset(0)
-            .setRange(sizeof(CameraData));
+        // write the appropriate descriptors
+        auto camera_info = frame.camera_ubo.descriptor_buffer_info();
+        auto scene_info = _scene_ubo.descriptor_buffer_info();
 
-        vk::WriteDescriptorSet set_write{};
-        set_write.setDstBinding(0)
-            .setDstSet(frame.descriptor)
-            .setDescriptorCount(1)
+        vk::WriteDescriptorSet camera_write{};
+        camera_write.setDstSet(frame.descriptor)
+            .setDstBinding(0)
             .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-            .setBufferInfo(buf_info);
+            .setBufferInfo(camera_info);
+        vk::WriteDescriptorSet scene_write{};
+        scene_write.setDstSet(frame.descriptor)
+            .setDstBinding(1)
+            .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic)
+            .setBufferInfo(scene_info);
 
-        device.updateDescriptorSets(set_write, nullptr);
+        std::vector<vk::WriteDescriptorSet> writes{camera_write, scene_write};
+        device.updateDescriptorSets(writes, nullptr);
     }
 }
 

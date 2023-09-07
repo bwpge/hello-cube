@@ -27,13 +27,6 @@ struct GLFWvidmode;
 
 namespace hvk {
 
-struct CameraData {
-    glm::mat4 proj;
-    glm::mat4 view;
-    glm::mat4 view_proj;
-    glm::vec3 light_pos{};
-};
-
 struct PushConstants {
     glm::mat4 model{};
     glm::mat4 normal_transform{};
@@ -51,7 +44,7 @@ struct FrameData {
     vk::UniqueFence render_fence{};
     vk::UniqueCommandPool cmd_pool{};
     vk::UniqueCommandBuffer cmd{};
-    UniformBufferObject camera_ubo{};
+    UniformBuffer camera_ubo{};
     vk::DescriptorSet descriptor{};
     // NOTE: this descriptor set is freed by the owning pool, and since we are
     //   not using VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, we don't
@@ -131,6 +124,7 @@ private:
     Camera _camera{};
     glm::dvec2 _cursor{};
     Scene _scene{};
+    UniformBuffer _scene_ubo{};
 
     UploadContext _upload_ctx{};
     ShaderMap _shaders{};

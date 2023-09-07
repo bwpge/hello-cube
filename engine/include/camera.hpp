@@ -8,6 +8,13 @@
 
 namespace hvk {
 
+struct CameraData {
+    glm::mat4 proj;
+    glm::mat4 view;
+    glm::mat4 view_proj;
+    glm::vec3 pos;
+};
+
 enum class CameraDirection {
     Forward,
     Backward,
@@ -43,24 +50,19 @@ public:
     glm::mat4 projection() const;
     [[nodiscard]]
     glm::mat4 view_projection() const;
-
     [[nodiscard]]
-    glm::vec3 translation() const;
+    CameraData data() const;
 
     void set_aspect(float aspect);
     void set_sprint(bool on);
-    void set_translation(glm::vec3 pos);
+    void reset();
 
-    inline void reset() {
-        _pos = {0.f, 0.f, 5.f};
-        _pitch = 0.f;
-        _yaw = -180.f;
-        _fov = 45.f;
-        _front = {0.f, 0.f, -1.f};
-    }
+    [[nodiscard]]
+    glm::vec3 translation() const;
+    void set_translation(glm::vec3 pos);
+    void translate(CameraDirection direction, double dt);
 
     void rotate(double dx, double dy);
-    void move(CameraDirection direction, double dt);
     void zoom(ZoomDirection direction, double dt);
 
 private:

@@ -12,6 +12,7 @@ namespace hvk {
 struct AllocatedBuffer {
     VkBuffer buffer{};
     VmaAllocation allocation{};
+    usize size{};
 };
 
 struct AllocatedImage {
@@ -102,10 +103,5 @@ private:
 
     VmaAllocator _allocator{};
 };
-
-AllocatedBuffer create_staging_buffer(
-    VmaAllocator allocator,
-    vk::DeviceSize size
-);
 
 }  // namespace hvk
