@@ -473,8 +473,20 @@ void Engine::create_scene() {
             auto g = static_cast<float>(std::abs(count + j)) / (2 * count);
             auto color = glm::vec3{r, g, 1.0f};
 
-            auto mesh = std::abs(j) % 2 == 1 ? Mesh::sphere(0.4f, color, 36, 20)
-                                             : Mesh::cube(0.5f, color);
+            Mesh mesh{};
+            switch (std::abs(i + j) % 4) {
+                case 0:
+                    mesh = Mesh::cube(0.5f, color);
+                    break;
+                case 1:
+                    mesh = Mesh::sphere(0.4f, color, 36, 20);
+                    break;
+                case 2:
+                    mesh = Mesh::cylinder(0.35f, 0.85f, 30, color);
+                    break;
+                case 3:
+                    mesh = Mesh::torus(0.5f, 0.2f, 20, 36, color);
+            }
             mesh.set_translation({x, y, z});
             mesh.set_rotation({x, 0.0f, z});
             _scene.add_mesh(std::move(mesh));

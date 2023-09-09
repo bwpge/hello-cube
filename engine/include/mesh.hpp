@@ -184,6 +184,166 @@ public:
         return mesh;
     }
 
+    // implementation adapted from http://www.songho.ca/opengl/gl_cylinder.html
+    static Mesh cylinder(
+        float radius,
+        float height,
+        u32 sectors,
+        glm::vec3 color
+    ) {
+        Mesh mesh{};
+
+        float h = height / 2.0f;
+
+        // pre-compute sin/cos theta for reuse
+        auto d_theta = glm::two_pi<float>() / static_cast<float>(sectors);
+        std::vector<float> d_sin{};
+        std::vector<float> d_cos{};
+        for (u32 i = 0; i <= sectors; i++) {
+            auto theta = d_theta * static_cast<float>(i);
+            d_sin.push_back(radius * glm::sin(theta));
+            d_cos.push_back(radius * glm::cos(theta));
+        }
+
+        // generate top circle vertices
+        mesh._vertices.push_back(Vertex{
+            {0.0f, h, 0.0f}, {0.0f, 1.0f, 0.0f}, color});  // center
+        for (u32 i = 0; i <= sectors; i++) {
+            float x = d_cos[i];
+            float z = d_sin[i];
+
+            mesh._vertices.push_back({
+                {x, h, z},
+                {0.0f, 1.0f, 0.0f},
+                color,
+            });
+        }
+
+        // generate top circle indices
+        for (u32 i = 1; i <= sectors; i++) {
+            u32 j = (i + 1) % (sectors + 1);
+            if (j == 0) {
+                j++;
+            }
+            mesh._indices.push_back(i);
+            mesh._indices.push_back(0);
+            mesh._indices.push_back(j);
+        }
+
+        // generate bottom circle vertices
+        u32 bottom_offset = static_cast<u32>(mesh._vertices.size());
+        mesh._vertices.push_back(Vertex{
+            {0.0f, -h, 0.0f}, {0.0f, -1.0f, 0.0f}, color});  // center
+        for (u32 i = 0; i <= sectors; i++) {
+            auto x = d_cos[i];
+            auto z = d_sin[i];
+
+            mesh._vertices.push_back({
+                {x, -h, z},
+                {0.0f, -1.0f, 0.0f},
+                color,
+            });
+        }
+
+        // generate wall vertices (same as top/bottom, different normals)
+        u32 wall_offset = static_cast<u32>(mesh._vertices.size());
+        for (u32 i = 0; i <= sectors; i++) {
+            auto x = d_cos[i];
+            auto z = d_sin[i];
+            glm::vec3 top{x, h, z};
+            glm::vec3 bot{x, -h, z};
+            glm::vec3 normal = glm::normalize(glm::vec3{x, 0.0f, z});
+
+            mesh._vertices.push_back(Vertex{bot, normal, color});
+            mesh._vertices.push_back(Vertex{top, normal, color});
+        }
+
+        // generate bottom circle indices
+        for (u32 i = 1; i <= sectors; i++) {
+            u32 j = (i + 1) % (sectors + 1);
+            if (j == 0) {
+                j++;
+            }
+            // wind bottom triangles backwards to avoid culling
+            mesh._indices.push_back(bottom_offset + j);
+            mesh._indices.push_back(bottom_offset);
+            mesh._indices.push_back(bottom_offset + i);
+        }
+
+        // generate cylinder wall indices
+        auto end = sectors * 2;
+        for (u32 i = 0; i <= end; i += 2) {
+            u32 j = (i + 2) % (end + 1);
+
+            // top and bottom vertices are interleaved
+            auto k1 = wall_offset + i;
+            auto k2 = wall_offset + i + 1;
+            auto k3 = wall_offset + j + 1;
+            auto k4 = wall_offset + j;
+            mesh._indices.push_back(k1);
+            mesh._indices.push_back(k2);
+            mesh._indices.push_back(k3);
+            mesh._indices.push_back(k1);
+            mesh._indices.push_back(k3);
+            mesh._indices.push_back(k4);
+        }
+
+        return mesh;
+    }
+
+    // derived with reference: https://electronut.in/torus
+    static Mesh torus(
+        float radius_ring,
+        float radius_inner,
+        u32 sectors,
+        u32 segments,
+        glm::vec3 color
+    ) {
+        Mesh mesh{};
+
+        auto d_theta = glm::two_pi<float>() / static_cast<float>(segments);
+        auto d_phi = glm::two_pi<float>() / static_cast<float>(sectors);
+
+        // generate circles along ring
+        for (u32 i = 0; i <= segments; i++) {
+            auto theta = static_cast<float>(i) * d_theta;
+            for (u32 j = 0; j <= sectors; j++) {
+                auto phi = static_cast<float>(j) * d_phi;
+
+                auto x = (radius_ring + radius_inner * glm::cos(phi)) *
+                         glm::cos(theta);
+                auto y = radius_inner * glm::sin(phi);
+                auto z = (radius_ring + radius_inner * glm::cos(phi)) *
+                         glm::sin(theta);
+
+                glm::vec3 v{x, y, z};
+                mesh._vertices.push_back({v, glm::normalize(v), color});
+            }
+        }
+
+        // generate indices along each segment
+        for (u32 i = 0; i < segments; i++) {
+            auto col = i * (sectors + 1);
+            auto next_col = (i + 1) * (sectors + 1);
+            for (u32 j = 0; j <= sectors; j++) {
+                auto next_j = (j + 1) % (sectors + 1);
+                auto k1 = col + j;
+                auto k2 = col + next_j;
+                auto k3 = next_col + next_j;
+                auto k4 = next_col + j;
+
+                mesh._indices.push_back(k1);
+                mesh._indices.push_back(k2);
+                mesh._indices.push_back(k3);
+                mesh._indices.push_back(k1);
+                mesh._indices.push_back(k3);
+                mesh._indices.push_back(k4);
+            }
+        }
+
+        return mesh;
+    }
+
     static Mesh load_obj(const std::filesystem::path& path) {
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
