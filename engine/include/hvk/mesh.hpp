@@ -25,11 +25,12 @@ struct Vertex {
     glm::vec3 color;
 
     static std::vector<vk::VertexInputBindingDescription> binding_desc() {
-        return {{
+        vk::VertexInputBindingDescription desc{
             0,
             sizeof(Vertex),
             vk::VertexInputRate::eVertex,
-        }};
+        };
+        return {desc};
     }
 
     static std::vector<vk::VertexInputAttributeDescription> attr_desc() {

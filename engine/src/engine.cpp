@@ -149,7 +149,7 @@ void Engine::render() {
     const auto& render_fence = frame.render_fence;
     const auto& render_semaphore = frame.render_semaphore;
     const auto& present_semaphore = frame.present_semaphore;
-    const auto& pipeline = _gfx_pipelines.pipelines[_pipeline_idx];
+    const auto& pipeline = _pipelines.pipelines[_pipeline_idx];
 
     if (device.waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
         vk::Result::eSuccess) {
@@ -191,7 +191,7 @@ void Engine::render() {
     // bind descriptor sets
     cmd->bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
-        _gfx_pipelines.layout.get(),
+        _pipelines.layout.get(),
         0,
         frame.descriptor,
         _scene_ubo.dyn_offset(_frame_idx)
@@ -207,7 +207,7 @@ void Engine::render() {
             glm::transpose(glm::inverse(model)),
         };
         cmd->pushConstants(
-            _gfx_pipelines.layout.get(),
+            _pipelines.layout.get(),
             vk::ShaderStageFlagBits::eVertex,
             0,
             sizeof(PushConstants),
@@ -255,7 +255,7 @@ void Engine::cleanup() {  // NOLINT(readability-make-member-function-const)
 }
 
 void Engine::cycle_pipeline() {
-    _pipeline_idx = (_pipeline_idx + 1) % _gfx_pipelines.pipelines.size();
+    _pipeline_idx = (_pipeline_idx + 1) % _pipelines.pipelines.size();
 }
 
 void Engine::toggle_fullscreen() {
@@ -709,7 +709,6 @@ void Engine::create_sync_obj() {
 
 void Engine::create_pipelines() {
     spdlog::trace("Creating graphics pipelines");
-    const auto& device = VulkanContext::device();
     const auto& swapchain = VulkanContext::swapchain();
 
     // hardcoded push constants for matrices
@@ -719,30 +718,28 @@ void Engine::create_pipelines() {
         .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
     PipelineBuilder builder{};
-    _gfx_pipelines =
-        builder.set_push_constant(push_constant)
+    _pipelines =
+        builder.add_push_constant(push_constant)
             .add_descriptor_set_layout(_global_desc_set_layout)
+            // general render pipeline
             .new_pipeline()
-            .add_vertex_shader(
-                _shaders.module("mesh", ShaderType::Vertex, device)
-            )
-            .add_fragment_shader(
-                _shaders.module("mesh", ShaderType::Fragment, device)
-            )
-            .set_extent(swapchain.extent)
-            .set_cull_mode(vk::CullModeFlagBits::eBack)
-            .set_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
+            .add_vertex_shader(_shaders.vertex("mesh"))
+            .add_fragment_shader(_shaders.fragment("mesh"))
+            .add_vertex_binding_description(Vertex::binding_desc())
+            .add_vertex_attr_description(Vertex::attr_desc())
+            .with_default_viewport(swapchain.extent)
+            .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
+            // wireframe pipeline
             .new_pipeline()
-            .add_vertex_shader(
-                _shaders.module("mesh", ShaderType::Vertex, device)
-            )
-            .add_fragment_shader(
-                _shaders.module("wireframe", ShaderType::Fragment, device)
-            )
-            .set_extent(swapchain.extent)
-            .set_polygon_mode(vk::PolygonMode::eLine)
-            .set_cull_mode(vk::CullModeFlagBits::eNone)
-            .build(device, _render_pass.get());
+            .add_vertex_shader(_shaders.vertex("mesh"))
+            .add_fragment_shader(_shaders.fragment("wireframe"))
+            .add_vertex_binding_description(Vertex::binding_desc())
+            .add_vertex_attr_description(Vertex::attr_desc())
+            .with_default_viewport(swapchain.extent)
+            .with_polygon_mode(vk::PolygonMode::eLine)
+            .with_cull_mode(vk::CullModeFlagBits::eNone)
+            // build all pipelines with this layout
+            .build(_render_pass.get());
 }
 
 void Engine::recreate_swapchain() {

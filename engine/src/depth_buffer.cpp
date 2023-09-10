@@ -53,6 +53,14 @@ DepthBuffer::DepthBuffer(vk::Extent2D extent) {
     _image_view = VulkanContext::device().createImageViewUnique(ivci);
 }
 
+vk::Format DepthBuffer::format() const {
+    return _format;
+}
+
+vk::ImageView& DepthBuffer::image_view() noexcept {
+    return _image_view.get();
+}
+
 void DepthBuffer::destroy() {
     VulkanContext::allocator().destroy(_image);
 }

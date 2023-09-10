@@ -2,6 +2,25 @@
 
 namespace hvk {
 
+struct PipelineBuilderState {
+    explicit PipelineBuilderState(usize count)
+        : pipeline_infos(count),
+          vertex_input_states(count),
+          viewport_states(count),
+          shader_stages(count),
+          rasterizers(count),
+          color_blend_states(count) {}
+
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+    std::vector<vk::GraphicsPipelineCreateInfo> pipeline_infos{};
+    std::vector<vk::PipelineVertexInputStateCreateInfo> vertex_input_states{};
+    std::vector<vk::PipelineViewportStateCreateInfo> viewport_states{};
+    std::vector<std::vector<vk::PipelineShaderStageCreateInfo>> shader_stages{};
+    std::vector<vk::PipelineRasterizationStateCreateInfo> rasterizers{};
+    std::vector<vk::PipelineColorBlendStateCreateInfo> color_blend_states{};
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
+};
+
 std::vector<vk::PipelineShaderStageCreateInfo> build_shader_stage_info(
     const PipelineConfig& config
 ) {
@@ -9,10 +28,9 @@ std::vector<vk::PipelineShaderStageCreateInfo> build_shader_stage_info(
         config.stage_flags.size() == config.shaders.size(),
         "number of stage_flags should always equal number of shaders"
     );
-    std::vector<vk::PipelineShaderStageCreateInfo> stages{};
 
-    auto stage_count = config.shaders.size();
-    for (usize i = 0; i < stage_count; i++) {
+    std::vector<vk::PipelineShaderStageCreateInfo> stages{};
+    for (usize i = 0; i < config.shaders.size(); i++) {
         vk::PipelineShaderStageCreateInfo stage{
             {},
             config.stage_flags[i],
@@ -25,17 +43,46 @@ std::vector<vk::PipelineShaderStageCreateInfo> build_shader_stage_info(
     return stages;
 }
 
+vk::PipelineColorBlendAttachmentState default_color_blend_attachment(bool blend
+) {
+    vk::PipelineColorBlendAttachmentState state{};
+    state
+        .setColorWriteMask(
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+        )
+        .setBlendEnable(VK_FALSE)
+        .setSrcColorBlendFactor(vk::BlendFactor::eOne)
+        .setDstColorBlendFactor(vk::BlendFactor::eZero)
+        .setColorBlendOp(vk::BlendOp::eAdd)
+        .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+        .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+        .setAlphaBlendOp(vk::BlendOp::eAdd);
+
+    if (blend) {
+        state.setBlendEnable(VK_TRUE)
+            .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+            .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha);
+    }
+    return state;
+}
+
 PipelineBuilder& PipelineBuilder::new_pipeline() {
     _config.push_back(PipelineConfig{});
     _idx = _config.size() - 1;
+
+    auto& config = current_config();
+    config.rasterizer_info.setCullMode(vk::CullModeFlagBits::eBack)
+        .setLineWidth(1.0f);
+    config.color_blend_attachments = {default_color_blend_attachment(false)};
+
     return *this;
 }
 
-PipelineBuilder& PipelineBuilder::add_fragment_shader(
-    vk::UniqueShaderModule shader
+PipelineBuilder& PipelineBuilder::add_push_constant(
+    const vk::PushConstantRange& range
 ) {
-    _config[_idx].shaders.push_back(std::move(shader));
-    _config[_idx].stage_flags.push_back(vk::ShaderStageFlagBits::eFragment);
+    _push_constants.push_back(range);
     return *this;
 }
 
@@ -49,39 +96,119 @@ PipelineBuilder& PipelineBuilder::add_descriptor_set_layout(
 PipelineBuilder& PipelineBuilder::add_vertex_shader(
     vk::UniqueShaderModule shader
 ) {
-    _config[_idx].shaders.push_back(std::move(shader));
-    _config[_idx].stage_flags.push_back(vk::ShaderStageFlagBits::eVertex);
+    current_config().shaders.push_back(std::move(shader));
+    current_config().stage_flags.push_back(vk::ShaderStageFlagBits::eVertex);
     return *this;
 }
 
-PipelineBuilder& PipelineBuilder::set_extent(const vk::Extent2D& extent) {
-    _config[_idx].extent = extent;
+PipelineBuilder& PipelineBuilder::add_vertex_shader(const Shader& shader) {
+    add_vertex_shader(shader.module());
     return *this;
 }
 
-PipelineBuilder& PipelineBuilder::set_front_face(vk::FrontFace front) {
-    _config[_idx].front_face = front;
-    return *this;
-}
-
-PipelineBuilder& PipelineBuilder::set_cull_mode(vk::CullModeFlagBits mode) {
-    _config[_idx].cull_mode = mode;
-    return *this;
-}
-
-PipelineBuilder& PipelineBuilder::set_polygon_mode(vk::PolygonMode mode) {
-    _config[_idx].polygon_mode = mode;
-    return *this;
-}
-
-PipelineBuilder& PipelineBuilder::set_push_constant(
-    vk::PushConstantRange push_constant
+PipelineBuilder& PipelineBuilder::add_fragment_shader(
+    vk::UniqueShaderModule shader
 ) {
-    _push_constant = push_constant;
+    current_config().shaders.push_back(std::move(shader));
+    current_config().stage_flags.push_back(vk::ShaderStageFlagBits::eFragment);
     return *this;
 }
 
-PipelineBuilder& PipelineBuilder::set_depth_stencil(
+PipelineBuilder& PipelineBuilder::add_fragment_shader(const Shader& shader) {
+    add_fragment_shader(shader.module());
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::add_vertex_binding_description(
+    const vk::VertexInputBindingDescription& desc
+) {
+    current_config().vertex_input_bindings.push_back(desc);
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::add_vertex_binding_description(
+    const std::vector<vk::VertexInputBindingDescription>& desc
+) {
+    for (const auto& d : desc) {
+        current_config().vertex_input_bindings.push_back(d);
+    }
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::add_vertex_attr_description(
+    const vk::VertexInputAttributeDescription& desc
+) {
+    current_config().vertex_input_attrs.push_back(desc);
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::add_vertex_attr_description(
+    const std::vector<vk::VertexInputAttributeDescription>& desc
+) {
+    for (const auto& d : desc) {
+        current_config().vertex_input_attrs.push_back(d);
+    }
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_input_assembly_state(
+    const vk::PipelineInputAssemblyStateCreateInfo& info
+) {
+    current_config().input_assembly_state = info;
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_default_viewport(
+    const vk::Extent2D& extent
+) {
+    auto& config = current_config();
+    config.viewports = {vk::Viewport{
+        0.0f,
+        static_cast<float>(extent.height),
+        static_cast<float>(extent.width),
+        -static_cast<float>(extent.height),
+        0.0f,
+        1.0f,
+    }};
+    config.scissors = {vk::Rect2D{{0, 0}, extent}};
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_multisample_state(
+    const vk::PipelineMultisampleStateCreateInfo& info
+) {
+    current_config().multisample_state = info;
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_default_color_blend_opaque() {
+    current_config().color_blend_attachments = {
+        default_color_blend_attachment(false)};
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_default_color_blend_transparency() {
+    current_config().color_blend_attachments = {
+        default_color_blend_attachment(true)};
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_front_face(vk::FrontFace front) {
+    current_config().rasterizer_info.setFrontFace(front);
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_cull_mode(vk::CullModeFlagBits mode) {
+    current_config().rasterizer_info.setCullMode(mode);
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_polygon_mode(vk::PolygonMode mode) {
+    current_config().rasterizer_info.setPolygonMode(mode);
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_depth_stencil(
     bool test,
     bool write,
     vk::CompareOp op
@@ -93,109 +220,68 @@ PipelineBuilder& PipelineBuilder::set_depth_stencil(
         .setDepthBoundsTestEnable(VK_FALSE)
         .setStencilTestEnable(VK_FALSE);
 
-    _config[_idx].depth_stencil = info;
+    current_config().depth_stencil = info;
     return *this;
 }
 
 [[nodiscard]]
-GraphicsPipeline PipelineBuilder::build(
-    const vk::Device& device,
-    const vk::RenderPass& render_pass
-) {
-    auto vertex_binding = Vertex::binding_desc();
-    auto vertex_attr = Vertex::attr_desc();
-    vk::PipelineVertexInputStateCreateInfo vertex_input{};
-    vertex_input.setVertexBindingDescriptions(vertex_binding);
-    vertex_input.setVertexAttributeDescriptions(vertex_attr);
+GraphicsPipeline PipelineBuilder::build(const vk::RenderPass& render_pass) {
+    const auto count = _config.size();
+    auto layout = create_pipeline_layout();
+    PipelineBuilderState state{count};
 
-    vk::PipelineInputAssemblyStateCreateInfo input_assembly{
-        {},
-        vk::PrimitiveTopology::eTriangleList,
-        VK_FALSE,
-    };
-    vk::Viewport viewport{
-        0.0f,
-        static_cast<float>(_config[_idx].extent.height),
-        static_cast<float>(_config[_idx].extent.width),
-        -static_cast<float>(_config[_idx].extent.height),
-        0.0f,
-        1.0f,
-    };
-    vk::Rect2D scissor{{0, 0}, _config[_idx].extent};
-    vk::PipelineViewportStateCreateInfo viewport_info{};
-    viewport_info.setScissors(scissor).setViewports(viewport);
+    for (u32 i = 0; i < count; i++) {
+        const auto& config = _config[i];
 
-    vk::PipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.setMinSampleShading(1.0f);
+        state.vertex_input_states[i]
+            .setVertexBindingDescriptions(config.vertex_input_bindings)
+            .setVertexAttributeDescriptions(config.vertex_input_attrs);
+        state.viewport_states[i]
+            .setViewports(config.viewports)
+            .setScissors(config.scissors);
+        state.shader_stages[i] = build_shader_stage_info(_config[i]);
+        state.color_blend_states[i].setAttachments(
+            config.color_blend_attachments
+        );
 
-    vk::PipelineColorBlendAttachmentState color_blend_attachment{};
-    color_blend_attachment.setColorWriteMask(
-        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+        state.pipeline_infos[i]
+            .setStages(state.shader_stages[i])
+            .setPVertexInputState(&state.vertex_input_states[i])
+            .setPInputAssemblyState(&config.input_assembly_state)
+            .setPViewportState(&state.viewport_states[i])
+            .setPRasterizationState(&config.rasterizer_info)
+            .setPMultisampleState(&config.multisample_state)
+            .setPColorBlendState(&state.color_blend_states[i])
+            .setPDepthStencilState(&config.depth_stencil)
+            .setLayout(layout.get())
+            .setRenderPass(render_pass);
+    }
+
+    auto pipelines = VulkanContext::device().createGraphicsPipelinesUnique(
+        nullptr, state.pipeline_infos
     );
+    VKHPP_CHECK(pipelines.result, "Failed to create graphics pipeline");
+    GraphicsPipeline result{std::move(layout), std::move(pipelines.value)};
 
-    vk::PipelineColorBlendStateCreateInfo color_blend{};
-    color_blend.setAttachments(color_blend_attachment);
+    *this = {};
 
+    return result;
+}
+
+PipelineConfig& PipelineBuilder::current_config() {
+    return _config[_idx];
+}
+
+vk::UniquePipelineLayout PipelineBuilder::create_pipeline_layout() const {
     vk::PipelineLayoutCreateInfo layout_info{};
     if (!_desc_set_layouts.empty()) {
         layout_info.setSetLayouts(_desc_set_layouts);
     }
-    if (_push_constant.size > 0) {
-        layout_info.setPushConstantRanges(_push_constant);
-    }
-    auto layout = device.createPipelineLayoutUnique(layout_info);
-
-    std::vector<vk::GraphicsPipelineCreateInfo> pipeline_infos{};
-    _rasterizers.resize(_config.size(), {});
-    for (usize i = 0; i < _config.size(); i++) {
-        std::vector<vk::PipelineShaderStageCreateInfo> stages{};
-
-        build_shader_stage_info(_config[i]);
-        auto stage_count = _config[i].shaders.size();
-        for (usize j = 0; j < stage_count; j++) {
-            vk::PipelineShaderStageCreateInfo stage{
-                {},
-                _config[i].stage_flags[j],
-                _config[i].shaders[j].get(),
-                "main",
-            };
-            stages.push_back(stage);
-        }
-        _stages.push_back(stages);
-
-        _rasterizers[i]
-            .setLineWidth(1.0f)
-            .setCullMode(_config[i].cull_mode)
-            .setFrontFace(_config[i].front_face)
-            .setPolygonMode(_config[i].polygon_mode);
-
-        vk::GraphicsPipelineCreateInfo info{};
-        info.setStages(_stages[i])
-            .setPVertexInputState(&vertex_input)
-            .setPInputAssemblyState(&input_assembly)
-            .setPViewportState(&viewport_info)
-            .setPRasterizationState(&_rasterizers[i])
-            .setPMultisampleState(&multisampling)
-            .setPColorBlendState(&color_blend)
-            .setPDepthStencilState(&_config[i].depth_stencil)
-            .setLayout(layout.get())
-            .setRenderPass(render_pass);
-
-        pipeline_infos.push_back(info);
+    if (!_push_constants.empty()) {
+        layout_info.setPushConstantRanges(_push_constants);
     }
 
-    auto pipelines =
-        device.createGraphicsPipelinesUnique(nullptr, pipeline_infos);
-    VKHPP_CHECK(pipelines.result, "Failed to create graphics pipeline");
-
-    _config.clear();
-    _stages.clear();
-    _rasterizers.clear();
-    _idx = 0;
-
-    GraphicsPipeline result{std::move(layout), std::move(pipelines.value)};
-    return result;
+    return VulkanContext::device().createPipelineLayoutUnique(layout_info);
 }
 
 }  // namespace hvk

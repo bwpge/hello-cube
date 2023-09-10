@@ -69,11 +69,6 @@ public:
         return vk::MemoryPropertyFlags{flags};
     }
 
-    [[nodiscard]]
-    inline VmaAllocator ptr() const {
-        return _allocator;
-    }
-
     template <Allocation T>
     void copy_mapped(T& buf, void* src, usize size) {
         void* dst{};

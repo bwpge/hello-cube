@@ -31,11 +31,7 @@ public:
     }
 
     [[nodiscard]]
-    inline bool is_mapped() const {
-        return static_cast<bool>(
-            _mem_props & vk::MemoryPropertyFlagBits::eHostVisible
-        );
-    }
+    bool is_mapped() const;
 
     template <typename T>
     void update(T* src) {
@@ -66,19 +62,13 @@ public:
     void update_indexed(void*, usize) = delete;
 
     [[nodiscard]]
-    inline vk::Buffer buffer() const {
-        return static_cast<vk::Buffer>(_buf.buffer);
-    }
-
+    vk::Buffer buffer() const;
     [[nodiscard]]
     usize range() const;
-
     [[nodiscard]]
     usize size() const;
-
     [[nodiscard]]
     u32 dyn_offset(usize idx) const;
-
     [[nodiscard]]
     vk::DescriptorBufferInfo descriptor_buffer_info(usize offset = 0) const;
 

@@ -17,14 +17,8 @@ public:
     ~DepthBuffer();
 
     [[nodiscard]]
-    inline vk::Format format() const {
-        return _format;
-    }
-
-    inline vk::ImageView& image_view() noexcept {
-        return _image_view.get();
-    }
-
+    vk::Format format() const;
+    vk::ImageView& image_view() noexcept;
     void destroy();
 
 private:

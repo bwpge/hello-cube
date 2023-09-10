@@ -14,6 +14,16 @@ Buffer::~Buffer() {
     destroy();
 }
 
+bool Buffer::is_mapped() const {
+    return static_cast<bool>(
+        _mem_props & vk::MemoryPropertyFlagBits::eHostVisible
+    );
+}
+
+vk::Buffer Buffer::buffer() const {
+    return static_cast<vk::Buffer>(_buf.buffer);
+}
+
 usize Buffer::range() const {
     return _range;
 }

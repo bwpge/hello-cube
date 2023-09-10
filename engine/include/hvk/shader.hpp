@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include "hvk/core.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
@@ -35,9 +36,7 @@ public:
     }
 
     [[nodiscard]]
-    vk::UniqueShaderModule module(const vk::UniqueDevice& device) const;
-    [[nodiscard]]
-    vk::UniqueShaderModule module(const vk::Device& device) const;
+    vk::UniqueShaderModule module() const;
 
 private:
     std::vector<char> _buf{};
@@ -57,28 +56,33 @@ public:
     void load(Key key, ShaderType type, const std::filesystem::path& path);
     void remove(Key key, ShaderType type);
     [[nodiscard]]
-    const Shader& get(Key key, ShaderType type);
-
+    const Shader& get(Key key, ShaderType type) const;
     [[nodiscard]]
-    inline vk::UniqueShaderModule module(
-        Key key,
-        ShaderType type,
-        const vk::UniqueDevice& device
-    ) {
-        return get(key, type).module(device);
-    }
-
+    vk::UniqueShaderModule module(Key key, ShaderType type) const;
     [[nodiscard]]
-    inline vk::UniqueShaderModule module(
-        Key key,
-        ShaderType type,
-        const vk::Device& device
-    ) {
-        return get(key, type).module(device);
-    }
+    const Shader& vertex(Key key) const;
+    [[nodiscard]]
+    const Shader& fragment(Key key) const;
+    [[nodiscard]]
+    const Shader& geometry(Key key) const;
 
 private:
-    inline Map& get_by_name(ShaderType type) {
+    [[nodiscard]]
+    const Map& get_by_name(ShaderType type) const {
+        switch (type) {
+            case ShaderType::Geometry:
+                return _geometry;
+            case ShaderType::Vertex:
+                return _vertex;
+            case ShaderType::Fragment:
+                return _fragment;
+            default:
+                PANIC("Unsupported shader type");
+                break;
+        }
+    }
+
+    Map& get_by_name(ShaderType type) {
         switch (type) {
             case ShaderType::Geometry:
                 return _geometry;

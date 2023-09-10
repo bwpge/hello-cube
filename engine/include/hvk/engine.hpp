@@ -137,7 +137,7 @@ private:
     vk::UniqueDescriptorPool _desc_pool{};
     vk::UniqueDescriptorSetLayout _global_desc_set_layout{};
     usize _pipeline_idx{};
-    GraphicsPipeline _gfx_pipelines{};
+    GraphicsPipeline _pipelines{};
 };
 
 }  // namespace hvk
