@@ -6,17 +6,17 @@
 
 namespace hvk {
 
-class UniformBuffer {
+class Buffer {
 public:
-    explicit UniformBuffer(vk::DeviceSize size);
-    explicit UniformBuffer(vk::DeviceSize range, vk::DeviceSize size);
+    explicit Buffer(vk::DeviceSize size);
+    explicit Buffer(vk::DeviceSize range, vk::DeviceSize size);
 
-    UniformBuffer() = default;
-    UniformBuffer(const UniformBuffer&) = delete;
-    UniformBuffer(UniformBuffer&& other) noexcept;
-    UniformBuffer& operator=(const UniformBuffer&) = delete;
-    UniformBuffer& operator=(UniformBuffer&& rhs) noexcept;
-    ~UniformBuffer();
+    Buffer() = default;
+    Buffer(const Buffer&) = delete;
+    Buffer(Buffer&& other) noexcept;
+    Buffer& operator=(const Buffer&) = delete;
+    Buffer& operator=(Buffer&& rhs) noexcept;
+    ~Buffer();
 
     [[nodiscard]]
     static usize pad_alignment(usize size) {
@@ -48,9 +48,14 @@ public:
     void update(void*) = delete;
 
     template <typename T>
-    void update_indexed(T* src, usize dyn_index) {
+    void update_indexed(T* src, usize index) {
         auto size = sizeof(T);
-        auto offset = dyn_index * UniformBuffer::pad_alignment(size);
+        auto offset = index * Buffer::pad_alignment(size);
+        HVK_ASSERT(
+            offset < _buf.size,
+            "Index offset must point to an address within the buffer memory"
+        );
+
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         auto* data = static_cast<void*>(static_cast<char*>(_data) + offset);
         auto* new_data = static_cast<void*>(src);

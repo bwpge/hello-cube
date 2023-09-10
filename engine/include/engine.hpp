@@ -18,7 +18,7 @@
 #include "scene.hpp"
 #include "shader.hpp"
 #include "timer.hpp"
-#include "uniform_buffer.hpp"
+#include "buffer.hpp"
 #include "vk_context.hpp"
 
 struct GLFWwindow;
@@ -44,7 +44,8 @@ struct FrameData {
     vk::UniqueFence render_fence{};
     vk::UniqueCommandPool cmd_pool{};
     vk::UniqueCommandBuffer cmd{};
-    UniformBuffer camera_ubo{};
+    Buffer camera_ubo{};
+    Buffer object_ssbo{};
     vk::DescriptorSet descriptor{};
     // NOTE: this descriptor set is freed by the owning pool, and since we are
     //   not using VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, we don't
@@ -102,6 +103,7 @@ public:
 private:
     void init_glfw();
     void init_vulkan();
+    void create_buffers();
     void create_scene();
     void init_commands();
     void init_renderpass();
@@ -124,13 +126,11 @@ private:
     Camera _camera{};
     glm::dvec2 _cursor{};
     Scene _scene{};
-    UniformBuffer _scene_ubo{};
+    Buffer _scene_ubo{};
 
     UploadContext _upload_ctx{};
     ShaderMap _shaders{};
     DepthBuffer _depth_buffer{};
-    vk::UniqueBuffer _vertex_buffer{}, _index_buffer{};
-    vk::UniqueDeviceMemory _vertex_buffer_mem{}, _index_buffer_mem{};
     std::vector<FrameData> _frames{};
     vk::UniqueRenderPass _render_pass{};
     std::vector<vk::UniqueFramebuffer> _framebuffers{};

@@ -18,7 +18,7 @@ set(ENGINE_HEADER_FILES
     "include/shader.hpp"
     "include/timer.hpp"
     "include/types.hpp"
-    "include/uniform_buffer.hpp"
+    "include/buffer.hpp"
     "include/upload_context.hpp"
     "include/vk_context.hpp"
 )
@@ -36,7 +36,7 @@ set(ENGINE_SRC_FILES
     "src/scene.cpp"
     "src/shader.cpp"
     "src/timer.cpp"
-    "src/uniform_buffer.cpp"
+    "src/buffer.cpp"
     "src/upload_context.cpp"
     "src/vk_context.cpp"
 )

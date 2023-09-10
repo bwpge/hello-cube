@@ -427,6 +427,7 @@ void Engine::init_vulkan() {
     spdlog::trace("Creating upload context");
     _upload_ctx = UploadContext{VulkanContext::queue_families().transfer};
 
+    create_buffers();
     init_commands();
     load_shaders();
     create_scene();
@@ -435,6 +436,21 @@ void Engine::init_vulkan() {
     create_sync_obj();
     init_descriptors();
     create_pipelines();
+}
+
+void Engine::create_buffers() {
+    for (auto& frame : _frames) {
+        frame.camera_ubo = Buffer{sizeof(CameraData)};
+        frame.object_ssbo = Buffer{};
+    }
+
+    auto ubo_alignment = Buffer::pad_alignment(sizeof(SceneData));
+    auto padded_size = ubo_alignment * _max_frames_in_flight;
+    _scene_ubo = Buffer{sizeof(SceneData), padded_size};
+    for (u32 i = 0; i < _max_frames_in_flight; i++) {
+        auto data = _scene.data();
+        _scene_ubo.update_indexed(&data, i);
+    }
 }
 
 void Engine::load_shaders() {
@@ -448,14 +464,6 @@ void Engine::load_shaders() {
 }
 
 void Engine::create_scene() {
-    auto ubo_alignment = UniformBuffer::pad_alignment(sizeof(SceneData));
-    auto padded_size = ubo_alignment * _max_frames_in_flight;
-    _scene_ubo = UniformBuffer{sizeof(SceneData), padded_size};
-    for (u32 i = 0; i < _max_frames_in_flight; i++) {
-        auto data = _scene.data();
-        _scene_ubo.update_indexed(&data, i);
-    }
-
     {
         auto mesh = Mesh::load_obj("../assets/monkey_smooth.obj");
         mesh.set_translation({0.0f, 3.0f, -3.0f});
@@ -655,9 +663,6 @@ void Engine::init_descriptors() {
         device.createDescriptorSetLayoutUnique(layout_info);
 
     for (auto& frame : _frames) {
-        // allocate ubo
-        frame.camera_ubo = UniformBuffer{sizeof(CameraData)};
-
         // allocate the descriptor sets
         vk::DescriptorSetAllocateInfo alloc_info{};
         alloc_info.setDescriptorPool(_desc_pool.get())

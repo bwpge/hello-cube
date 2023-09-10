@@ -1,40 +1,38 @@
-#include "uniform_buffer.hpp"
+#include "buffer.hpp"
 
 namespace hvk {
 
-UniformBuffer::UniformBuffer(vk::DeviceSize size) : _range{size} {
+Buffer::Buffer(vk::DeviceSize size) : _range{size} {
     allocate_impl(size);
 }
 
-UniformBuffer::UniformBuffer(vk::DeviceSize range, vk::DeviceSize size)
-    : _range{range} {
+Buffer::Buffer(vk::DeviceSize range, vk::DeviceSize size) : _range{range} {
     allocate_impl(size);
 }
 
-UniformBuffer::~UniformBuffer() {
+Buffer::~Buffer() {
     destroy();
 }
 
-usize UniformBuffer::range() const {
+usize Buffer::range() const {
     return _range;
 }
 
-usize UniformBuffer::size() const {
+usize Buffer::size() const {
     return _buf.size;
 }
 
-u32 UniformBuffer::dyn_offset(usize idx) const {
-    return static_cast<u32>(idx * UniformBuffer::pad_alignment(_range));
+u32 Buffer::dyn_offset(usize idx) const {
+    return static_cast<u32>(idx * Buffer::pad_alignment(_range));
 }
 
-vk::DescriptorBufferInfo UniformBuffer::descriptor_buffer_info(usize offset
-) const {
+vk::DescriptorBufferInfo Buffer::descriptor_buffer_info(usize offset) const {
     vk::DescriptorBufferInfo info{};
     info.setBuffer(buffer()).setRange(_range).setOffset(offset);
     return info;
 }
 
-UniformBuffer::UniformBuffer(UniformBuffer&& other) noexcept {
+Buffer::Buffer(Buffer&& other) noexcept {
     destroy();
     std::swap(_buf, other._buf);
     std::swap(_range, other._range);
@@ -42,7 +40,7 @@ UniformBuffer::UniformBuffer(UniformBuffer&& other) noexcept {
     std::swap(_mem_props, other._mem_props);
 }
 
-UniformBuffer& UniformBuffer::operator=(UniformBuffer&& rhs) noexcept {
+Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     if (this == &rhs) {
         return *this;
     }
@@ -56,11 +54,11 @@ UniformBuffer& UniformBuffer::operator=(UniformBuffer&& rhs) noexcept {
     return *this;
 }
 
-void UniformBuffer::destroy() {
+void Buffer::destroy() {
     VulkanContext::allocator().destroy(_buf);
 }
 
-void UniformBuffer::allocate_impl(usize size) {
+void Buffer::allocate_impl(usize size) {
     auto& allocator = VulkanContext::allocator();
 
     VmaAllocationInfo allocation_info{};
@@ -83,7 +81,7 @@ void UniformBuffer::allocate_impl(usize size) {
     _mem_props = allocator.get_memory_property_flags(_buf);
 }
 
-void UniformBuffer::update_impl(void* dst, void* src, usize size) const {
+void Buffer::update_impl(void* dst, void* src, usize size) const {
     if (is_mapped()) {
         memcpy(dst, src, size);
     } else {
