@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
 
-#include "core.hpp"
+#include "hvk/core.hpp"
 
 namespace hvk {
 

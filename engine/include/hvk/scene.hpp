@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core.hpp"
-#include "allocator.hpp"
-#include "mesh.hpp"
+#include "hvk/core.hpp"
+#include "hvk/allocator.hpp"
+#include "hvk/mesh.hpp"
 
 namespace hvk {
 

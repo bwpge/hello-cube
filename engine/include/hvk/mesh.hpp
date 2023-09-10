@@ -7,9 +7,9 @@
 #include <glm/gtx/quaternion.hpp>
 #include <tiny_obj_loader.h>
 
-#include "core.hpp"
-#include "allocator.hpp"
-#include "upload_context.hpp"
+#include "hvk/core.hpp"
+#include "hvk/allocator.hpp"
+#include "hvk/upload_context.hpp"
 
 namespace hvk {
 

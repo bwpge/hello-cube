@@ -1,4 +1,4 @@
-#include "shader.hpp"
+#include "hvk/shader.hpp"
 
 namespace hvk {
 

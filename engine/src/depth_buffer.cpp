@@ -1,4 +1,4 @@
-#include "depth_buffer.hpp"
+#include "hvk/depth_buffer.hpp"
 
 namespace hvk {
 

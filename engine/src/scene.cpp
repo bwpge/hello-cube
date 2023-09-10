@@ -1,4 +1,4 @@
-#include "scene.hpp"
+#include "hvk/scene.hpp"
 
 namespace hvk {
 

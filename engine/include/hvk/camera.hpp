@@ -4,7 +4,7 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "core.hpp"
+#include "hvk/core.hpp"
 
 namespace hvk {
 

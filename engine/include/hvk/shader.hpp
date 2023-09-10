@@ -6,7 +6,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "core.hpp"
+#include "hvk/core.hpp"
 
 namespace hvk {
 

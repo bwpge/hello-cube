@@ -1,6 +1,6 @@
 #include <memory>
 
-#include "hello_vulkan.hpp"
+#include "hvk/hello_vulkan.hpp"
 
 int main() {
     auto engine = std::make_unique<hvk::Engine>(

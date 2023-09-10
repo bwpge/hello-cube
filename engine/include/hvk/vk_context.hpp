@@ -3,9 +3,9 @@
 #include <vulkan/vulkan.hpp>
 #include <glfw/glfw3.h>
 
-#include "allocator.hpp"
-#include "core.hpp"
-#include "debug_utils.hpp"
+#include "hvk/allocator.hpp"
+#include "hvk/core.hpp"
+#include "hvk/debug_utils.hpp"
 
 namespace hvk {
 

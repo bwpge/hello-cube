@@ -1,5 +1,5 @@
 #define VMA_IMPLEMENTATION
-#include "allocator.hpp"
+#include "hvk/allocator.hpp"
 
 namespace hvk {
 

@@ -2,9 +2,9 @@
 
 #include <functional>
 
-#include "core.hpp"
-#include "allocator.hpp"
-#include "vk_context.hpp"
+#include "hvk/core.hpp"
+#include "hvk/allocator.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 

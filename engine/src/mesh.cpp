@@ -1,5 +1,5 @@
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "mesh.hpp"
+#include "hvk/mesh.hpp"
 
 namespace hvk {
 

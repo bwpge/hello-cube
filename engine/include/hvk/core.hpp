@@ -5,7 +5,7 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vk_enum_string_helper.h>
 
-#include "types.hpp"
+#include "hvk/types.hpp"
 
 #define SYNC_TIMEOUT 1000000000
 

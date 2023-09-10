@@ -2,9 +2,9 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "core.hpp"
-#include "mesh.hpp"
-#include "shader.hpp"
+#include "hvk/core.hpp"
+#include "hvk/mesh.hpp"
+#include "hvk/shader.hpp"
 
 namespace hvk {
 

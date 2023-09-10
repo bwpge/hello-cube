@@ -5,22 +5,22 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ENGINE_HEADER_FILES
-    "include/allocator.hpp"
-    "include/camera.hpp"
-    "include/core.hpp"
-    "include/debug_utils.hpp"
-    "include/depth_buffer.hpp"
-    "include/engine.hpp"
-    "include/hello_vulkan.hpp"
-    "include/pipeline_builder.hpp"
-    "include/mesh.hpp"
-    "include/scene.hpp"
-    "include/shader.hpp"
-    "include/timer.hpp"
-    "include/types.hpp"
-    "include/buffer.hpp"
-    "include/upload_context.hpp"
-    "include/vk_context.hpp"
+    "include/hvk/allocator.hpp"
+    "include/hvk/camera.hpp"
+    "include/hvk/core.hpp"
+    "include/hvk/debug_utils.hpp"
+    "include/hvk/depth_buffer.hpp"
+    "include/hvk/engine.hpp"
+    "include/hvk/hello_vulkan.hpp"
+    "include/hvk/pipeline_builder.hpp"
+    "include/hvk/mesh.hpp"
+    "include/hvk/scene.hpp"
+    "include/hvk/shader.hpp"
+    "include/hvk/timer.hpp"
+    "include/hvk/types.hpp"
+    "include/hvk/buffer.hpp"
+    "include/hvk/upload_context.hpp"
+    "include/hvk/vk_context.hpp"
 )
 
 set(ENGINE_SRC_FILES

@@ -1,4 +1,4 @@
-#include "camera.hpp"
+#include "hvk/camera.hpp"
 
 namespace hvk {
 

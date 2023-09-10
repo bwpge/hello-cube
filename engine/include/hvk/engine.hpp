@@ -10,16 +10,16 @@
 #include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
 
-#include "allocator.hpp"
-#include "camera.hpp"
-#include "core.hpp"
-#include "depth_buffer.hpp"
-#include "pipeline_builder.hpp"
-#include "scene.hpp"
-#include "shader.hpp"
-#include "timer.hpp"
-#include "buffer.hpp"
-#include "vk_context.hpp"
+#include "hvk/allocator.hpp"
+#include "hvk/camera.hpp"
+#include "hvk/core.hpp"
+#include "hvk/depth_buffer.hpp"
+#include "hvk/pipeline_builder.hpp"
+#include "hvk/scene.hpp"
+#include "hvk/shader.hpp"
+#include "hvk/timer.hpp"
+#include "hvk/buffer.hpp"
+#include "hvk/vk_context.hpp"
 
 struct GLFWwindow;
 struct GLFWmonitor;
