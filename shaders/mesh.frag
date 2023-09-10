@@ -16,5 +16,5 @@ const float LIGHT_MIN = 0.05;
 void main() {
     float light = max(LIGHT_MIN, dot(scene.lightDir.xyz, inNormal));
 
-    outColor = light * vec4(inColor, 1.0) * scene.lightColor;
+    outColor = vec4(light * inColor, 1.0) * scene.lightColor;
 }
