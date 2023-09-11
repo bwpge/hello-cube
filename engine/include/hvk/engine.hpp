@@ -17,6 +17,7 @@
 #include "hvk/pipeline_builder.hpp"
 #include "hvk/scene.hpp"
 #include "hvk/shader.hpp"
+#include "hvk/texture.hpp"
 #include "hvk/timer.hpp"
 #include "hvk/buffer.hpp"
 #include "hvk/vk_context.hpp"
@@ -130,6 +131,7 @@ private:
 
     UploadContext _upload_ctx{};
     ShaderMap _shaders{};
+    std::unordered_map<std::string_view, Texture> _textures{};
     DepthBuffer _depth_buffer{};
     std::vector<FrameData> _frames{};
     vk::UniqueRenderPass _render_pass{};

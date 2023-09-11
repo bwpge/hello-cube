@@ -464,6 +464,8 @@ void Engine::load_shaders() {
 }
 
 void Engine::create_scene() {
+    _textures["lost_empire-RGBA"] =
+        Texture::load("../assets/lost_empire-RGBA.png", _upload_ctx);
     {
         auto mesh = Mesh::load_obj("../assets/monkey_smooth.obj");
         mesh.set_translation({0.0f, 3.0f, -3.0f});

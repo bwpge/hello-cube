@@ -16,6 +16,7 @@ set(ENGINE_HEADER_FILES
     "include/hvk/mesh.hpp"
     "include/hvk/scene.hpp"
     "include/hvk/shader.hpp"
+    "include/hvk/texture.hpp"
     "include/hvk/timer.hpp"
     "include/hvk/types.hpp"
     "include/hvk/buffer.hpp"
@@ -35,6 +36,7 @@ set(ENGINE_SRC_FILES
     "src/pipeline_builder.cpp"
     "src/scene.cpp"
     "src/shader.cpp"
+    "src/texture.cpp"
     "src/timer.cpp"
     "src/buffer.cpp"
     "src/upload_context.cpp"
@@ -76,6 +78,7 @@ target_precompile_headers(${PROJECT_NAME}
         "<vector>"
         "<vulkan/vulkan.hpp>"
         "<vk_mem_alloc.h>"
+        "<stb_image.h>"
 )
 
 # configure options
@@ -104,7 +107,8 @@ message(STATUS "Configuring package: glm")
 find_package(glm CONFIG REQUIRED)
 message(STATUS "Configuring package: tinyobjloader")
 find_package(tinyobjloader CONFIG REQUIRED)
-
+message(STATUS "Configuring package: stb")
+find_package(Stb REQUIRED)
 
 # build shaders
 set(SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders")
