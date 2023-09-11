@@ -346,6 +346,7 @@ public:
     }
 
     static Mesh load_obj(const std::filesystem::path& path) {
+        spdlog::trace("Loading mesh: {}", path.string());
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
@@ -371,15 +372,15 @@ public:
 
         Mesh mesh{};
 
+        const usize vert_count = 3;
         for (auto& shape : shapes) {
-            size_t offset = 0;
-            for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
+            usize offset = 0;
+            for (usize i = 0; i < shape.mesh.num_face_vertices.size(); i++) {
                 // hardcode loading triangles
-                usize fv = 3;
-                for (size_t v = 0; v < fv; v++) {
-                    tinyobj::index_t idx = shape.mesh.indices[offset + v];
-                    Vertex vertex{};
+                for (usize j = 0; j < vert_count; j++) {
+                    tinyobj::index_t idx = shape.mesh.indices[offset + j];
 
+                    Vertex vertex{};
                     vertex.position = {
                         attrib.vertices[3 * idx.vertex_index + 0],
                         attrib.vertices[3 * idx.vertex_index + 1],
@@ -395,7 +396,7 @@ public:
 
                     mesh._vertices.push_back(vertex);
                 }
-                offset += fv;
+                offset += vert_count;
             }
         }
 
