@@ -13,6 +13,7 @@
 #include "hvk/allocator.hpp"
 #include "hvk/camera.hpp"
 #include "hvk/core.hpp"
+#include "hvk/descriptor_utils.hpp"
 #include "hvk/depth_buffer.hpp"
 #include "hvk/pipeline_builder.hpp"
 #include "hvk/scene.hpp"
@@ -138,6 +139,7 @@ private:
     std::vector<vk::UniqueFramebuffer> _framebuffers{};
     vk::UniqueDescriptorPool _desc_pool{};
     vk::UniqueDescriptorSetLayout _global_desc_set_layout{};
+    vk::UniqueDescriptorSetLayout _texture_set_layout{};
     usize _pipeline_idx{};
     GraphicsPipeline _pipelines{};
 };

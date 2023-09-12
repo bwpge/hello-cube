@@ -174,7 +174,7 @@ void Engine::render() {
     cmd->begin(vk::CommandBufferBeginInfo{
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    vk::ClearValue color_clear{vk::ClearColorValue{0.0f, 0.0f, 0.2f, 1.0f}};
+    vk::ClearValue color_clear{vk::ClearColorValue{0.1f, 0.1f, 0.1f, 1.0f}};
     vk::ClearValue depth_clear{vk::ClearDepthStencilValue{1.0f}};
     std::vector<vk::ClearValue> clear{color_clear, depth_clear};
 
@@ -461,15 +461,20 @@ void Engine::load_shaders() {
     _shaders.load(
         "wireframe", ShaderType::Fragment, "../shaders/wireframe.frag.spv"
     );
+    _shaders.load(
+        "textured", ShaderType::Vertex, "../shaders/textured_lit.vert.spv"
+    );
+    _shaders.load(
+        "textured", ShaderType::Fragment, "../shaders/textured_lit.frag.spv"
+    );
 }
 
 void Engine::create_scene() {
     _textures["lost_empire-RGBA"] =
         Texture::load("../assets/lost_empire-RGBA.png", _upload_ctx);
     {
-        auto mesh = Mesh::load_obj("../assets/monkey_smooth.obj");
-        mesh.set_translation({0.0f, 3.0f, -3.0f});
-        mesh.set_scale(1.25f);
+        auto mesh = Mesh::load_obj("../assets/lost_empire.obj");
+        mesh.set_translation({5.0f, -20.0f, 0.0f});
         _scene.add_mesh(std::move(mesh));
     }
 
@@ -635,65 +640,41 @@ void Engine::init_descriptors() {
     std::vector<vk::DescriptorPoolSize> pool_sizes{
         {vk::DescriptorType::eUniformBuffer, 10},
         {vk::DescriptorType::eUniformBufferDynamic, 10},
+        {vk::DescriptorType::eCombinedImageSampler, 10},
     };
     vk::DescriptorPoolCreateInfo pool_info{};
     pool_info.setMaxSets(10).setPoolSizes(pool_sizes);
     _desc_pool = device.createDescriptorPoolUnique(pool_info);
 
-    vk::DescriptorSetLayoutBinding camera_binding{};
-    camera_binding.setBinding(0)
-        .setDescriptorCount(1)
-        .setStageFlags(vk::ShaderStageFlagBits::eVertex)
-        .setDescriptorType(vk::DescriptorType::eUniformBuffer);
-    vk::DescriptorSetLayoutBinding scene_binding{};
-    scene_binding.setBinding(1)
-        .setDescriptorCount(1)
-        .setStageFlags(
-            vk::ShaderStageFlagBits::eVertex |
-            vk::ShaderStageFlagBits::eFragment
-        )
-        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic);
-    std::vector<vk::DescriptorSetLayoutBinding> bindings{
-        camera_binding,
-        scene_binding,
+    DescriptorSetBindingMap frame_bindings{
+        {vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex},
+        {vk::DescriptorType::eUniformBufferDynamic,
+         vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment},
+    };
+    DescriptorSetBindingMap tex_bindings{
+        {vk::DescriptorType::eCombinedImageSampler,
+         vk::ShaderStageFlagBits::eVertex},
     };
 
-    vk::DescriptorSetLayoutCreateInfo layout_info = {};
-    layout_info.setBindings(bindings);
-
-    _global_desc_set_layout =
-        device.createDescriptorSetLayoutUnique(layout_info);
+    _global_desc_set_layout = frame_bindings.build_layout();
+    _texture_set_layout = tex_bindings.build_layout();
 
     for (auto& frame : _frames) {
         // allocate the descriptor sets
-        vk::DescriptorSetAllocateInfo alloc_info{};
-        alloc_info.setDescriptorPool(_desc_pool.get())
-            .setDescriptorSetCount(1)
-            .setSetLayouts(_global_desc_set_layout.get());
-
-        auto sets = device.allocateDescriptorSets(alloc_info);
-        HVK_ASSERT(
-            sets.size() == 1, "Allocation should create one descriptor set"
+        frame.descriptor = VulkanContext::allocate_descriptor_set(
+            _desc_pool, _global_desc_set_layout
         );
-        frame.descriptor = sets[0];
 
         // write the appropriate descriptors
-        auto camera_info = frame.camera_ubo.descriptor_buffer_info();
-        auto scene_info = _scene_ubo.descriptor_buffer_info();
-
-        vk::WriteDescriptorSet camera_write{};
-        camera_write.setDstSet(frame.descriptor)
-            .setDstBinding(0)
-            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-            .setBufferInfo(camera_info);
-        vk::WriteDescriptorSet scene_write{};
-        scene_write.setDstSet(frame.descriptor)
-            .setDstBinding(1)
-            .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic)
-            .setBufferInfo(scene_info);
-
-        std::vector<vk::WriteDescriptorSet> writes{camera_write, scene_write};
-        device.updateDescriptorSets(writes, nullptr);
+        DescriptorSetWriter writer{};
+        writer.write_buffers(
+            frame.descriptor,
+            frame_bindings,
+            {
+                frame.camera_ubo.descriptor_buffer_info(),
+                _scene_ubo.descriptor_buffer_info(),
+            }
+        );
     }
 }
 
@@ -727,6 +708,14 @@ void Engine::create_pipelines() {
             .new_pipeline()
             .add_vertex_shader(_shaders.vertex("mesh"))
             .add_fragment_shader(_shaders.fragment("mesh"))
+            .add_vertex_binding_description(Vertex::binding_desc())
+            .add_vertex_attr_description(Vertex::attr_desc())
+            .with_default_viewport(swapchain.extent)
+            .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
+            // textured pipeline
+            .new_pipeline()
+            .add_vertex_shader(_shaders.vertex("textured"))
+            .add_fragment_shader(_shaders.fragment("textured"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
             .with_default_viewport(swapchain.extent)

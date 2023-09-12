@@ -8,6 +8,7 @@ layout (location = 3) in vec2 inTexCoord;
 layout (location = 0) out vec3 fragPos;
 layout (location = 1) out vec3 fragNormal;
 layout (location = 2) out vec3 fragColor;
+layout (location = 3) out vec2 fragTexCoord;
 
 layout (set = 0, binding = 0) uniform CameraData {
 	mat4 projection;
@@ -33,4 +34,5 @@ void main()
 	fragPos = vec3(pc.model * vec4(inPosition, 1.0));
 	fragNormal = normalize(mat3(pc.normalTransform) * inNormal);
 	fragColor = inColor;
+    fragTexCoord = inTexCoord;
 }

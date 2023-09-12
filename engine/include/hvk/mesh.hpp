@@ -20,9 +20,10 @@ struct Transform {
 };
 
 struct Vertex {
-    glm::vec3 position;
-    glm::vec3 normal;
-    glm::vec3 color;
+    glm::vec3 position{};
+    glm::vec3 normal{};
+    glm::vec3 color{};
+    glm::vec2 uv{};
 
     static std::vector<vk::VertexInputBindingDescription> binding_desc() {
         vk::VertexInputBindingDescription desc{
@@ -52,11 +53,18 @@ struct Vertex {
             vk::Format::eR32G32B32Sfloat,
             offsetof(Vertex, color),
         };
+        auto uv_attr = vk::VertexInputAttributeDescription{
+            3,
+            0,
+            vk::Format::eR32G32Sfloat,
+            offsetof(Vertex, uv),
+        };
 
         return {
             pos_attr,
             normal_attr,
             color_attr,
+            uv_attr,
         };
     }
 };
@@ -83,83 +91,100 @@ public:
         return mesh;
     }
 
-    static Mesh cube(float size = 1.0f, glm::vec3 color = {1.0f, 0.0f, 1.0f}) {
+    static Mesh cube(float size = 1.0f, glm::vec3 color = {1.0f, 1.0f, 1.0f}) {
         Mesh mesh{};
         const auto s = size / 2.0f;
 
+        std::vector<glm::vec3> normals{
+            {-1.0f, 0.0f, 0.0f},
+            {0.0f, -1.0f, 0.0f},
+            {0.0f, 0.0f, -1.0f},
+            {1.0f, 0.0f, 0.0f},
+            {0.0f, 1.0f, 0.0f},
+            {0.0f, 0.0f, 1.0f},
+        };
+
         mesh._vertices = {
             // -X side
-            {{-s, -s, -s}, {-1.0f, 0.0f, 0.0f}, color},
-            {{-s, -s, s}, {-1.0f, 0.0f, 0.0f}, color},
-            {{-s, s, s}, {-1.0f, 0.0f, 0.0f}, color},
-            {{-s, s, s}, {-1.0f, 0.0f, 0.0f}, color},
-            {{-s, s, -s}, {-1.0f, 0.0f, 0.0f}, color},
-            {{-s, -s, -s}, {-1.0f, 0.0f, 0.0f}, color},
+            {{-s, -s, -s}, normals[0], color, {0.0f, 0.625f}},
+            {{-s, -s, s}, normals[0], color, {0.25f, 0.625f}},
+            {{-s, s, s}, normals[0], color, {0.25f, 0.375f}},
+            {{-s, s, s}, normals[0], color, {0.25f, 0.375f}},
+            {{-s, s, -s}, normals[0], color, {0.0f, 0.375f}},
+            {{-s, -s, -s}, normals[0], color, {0.0f, 0.625f}},
 
             // -Z side
-            {{-s, -s, -s}, {0.0f, 0.0f, -1.0f}, color},
-            {{s, s, -s}, {0.0f, 0.0f, -1.0f}, color},
-            {{s, -s, -s}, {0.0f, 0.0f, -1.0f}, color},
-            {{-s, -s, -s}, {0.0f, 0.0f, -1.0f}, color},
-            {{-s, s, -s}, {0.0f, 0.0f, -1.0f}, color},
-            {{s, s, -s}, {0.0f, 0.0f, -1.0f}, color},
+            {{-s, -s, -s}, normals[2], color, {1.0f, 0.625f}},
+            {{s, s, -s}, normals[2], color, {0.75f, 0.375f}},
+            {{s, -s, -s}, normals[2], color, {0.75f, 0.625f}},
+            {{-s, -s, -s}, normals[2], color, {1.0f, 0.625f}},
+            {{-s, s, -s}, normals[2], color, {1.0f, 0.375f}},
+            {{s, s, -s}, normals[2], color, {0.75f, 0.375f}},
 
             // -Y side
-            {{-s, -s, -s}, {0.0f, -1.0, 0.0f}, color},
-            {{s, -s, -s}, {0.0f, -1.0, 0.0f}, color},
-            {{s, -s, s}, {0.0f, -1.0, 0.0f}, color},
-            {{-s, -s, -s}, {0.0f, -1.0, 0.0f}, color},
-            {{s, -s, s}, {0.0f, -1.0, 0.0f}, color},
-            {{-s, -s, s}, {0.0f, -1.0, 0.0f}, color},
+            {{-s, -s, -s}, normals[1], color, {0.25f, 0.875f}},
+            {{s, -s, -s}, normals[1], color, {0.5f, 0.875f}},
+            {{s, -s, s}, normals[1], color, {0.5f, 0.625f}},
+            {{-s, -s, -s}, normals[1], color, {0.25f, 0.875f}},
+            {{s, -s, s}, normals[1], color, {0.5f, 0.625f}},
+            {{-s, -s, s}, normals[1], color, {0.25f, 0.625f}},
 
             // +Y side
-            {{-s, s, -s}, {0.0f, 1.0f, 0.0f}, color},
-            {{-s, s, s}, {0.0f, 1.0f, 0.0f}, color},
-            {{s, s, s}, {0.0f, 1.0f, 0.0f}, color},
-            {{-s, s, -s}, {0.0f, 1.0f, 0.0f}, color},
-            {{s, s, s}, {0.0f, 1.0f, 0.0f}, color},
-            {{s, s, -s}, {0.0f, 1.0f, 0.0f}, color},
+            {{-s, s, -s}, normals[4], color, {0.25f, 0.125f}},
+            {{-s, s, s}, normals[4], color, {0.25f, 0.375f}},
+            {{s, s, s}, normals[4], color, {0.5f, 0.375f}},
+            {{-s, s, -s}, normals[4], color, {0.25f, 0.125f}},
+            {{s, s, s}, normals[4], color, {0.5f, 0.375f}},
+            {{s, s, -s}, normals[4], color, {0.5f, 0.125f}},
 
             // +X side
-            {{s, s, -s}, {1.0f, 0.0f, 0.0f}, color},
-            {{s, s, s}, {1.0f, 0.0f, 0.0f}, color},
-            {{s, -s, s}, {1.0f, 0.0f, 0.0f}, color},
-            {{s, -s, s}, {1.0f, 0.0f, 0.0f}, color},
-            {{s, -s, -s}, {1.0f, 0.0f, 0.0f}, color},
-            {{s, s, -s}, {1.0f, 0.0f, 0.0f}, color},
+            {{s, s, -s}, normals[3], color, {0.75f, 0.375f}},
+            {{s, s, s}, normals[3], color, {0.5f, 0.375f}},
+            {{s, -s, s}, normals[3], color, {0.5f, 0.625f}},
+            {{s, -s, s}, normals[3], color, {0.5f, 0.625f}},
+            {{s, -s, -s}, normals[3], color, {0.75f, 0.625f}},
+            {{s, s, -s}, normals[3], color, {0.75f, 0.375f}},
 
             // +Z side
-            {{-s, s, s}, {0.0f, 0.0f, 1.0f}, color},
-            {{-s, -s, s}, {0.0f, 0.0f, 1.0f}, color},
-            {{s, s, s}, {0.0f, 0.0f, 1.0f}, color},
-            {{-s, -s, s}, {0.0f, 0.0f, 1.0f}, color},
-            {{s, -s, s}, {0.0f, 0.0f, 1.0f}, color},
-            {{s, s, s}, {0.0f, 0.0f, 1.0f}, color},
+            {{-s, s, s}, normals[5], color, {0.25f, 0.375f}},
+            {{-s, -s, s}, normals[5], color, {0.25f, 0.625f}},
+            {{s, s, s}, normals[5], color, {0.5f, 0.375f}},
+            {{-s, -s, s}, normals[5], color, {0.25f, 0.625f}},
+            {{s, -s, s}, normals[5], color, {0.5f, 0.625f}},
+            {{s, s, s}, normals[5], color, {0.5f, 0.375f}},
         };
         return mesh;
     }
 
     // implementation adapted from http://www.songho.ca/opengl/gl_sphere.html
-    static Mesh sphere(float radius, glm::vec3 color, u32 sectors, u32 stacks) {
+    static Mesh sphere(
+        float radius,
+        u32 sectors,
+        u32 stacks,
+        glm::vec3 color = {1.0f, 1.0f, 1.0f}
+    ) {
         Mesh mesh{};
 
         float d_sector = glm::two_pi<float>() / static_cast<float>(sectors);
         float d_step = glm::pi<float>() / static_cast<float>(stacks);
+
         for (u32 i = 0; i <= stacks; ++i) {
-            auto stack_angle =
-                glm::half_pi<float>() - static_cast<float>(i) * d_step;
-            auto xy = radius * glm::cos(stack_angle);
-            auto z = radius * glm::sin(stack_angle);
+            auto theta = glm::half_pi<float>() - static_cast<float>(i) * d_step;
+            auto xz = radius * glm::cos(theta);
+            auto y = radius * glm::sin(theta);
 
             for (u32 j = 0; j <= sectors; ++j) {
                 auto sector_angle = static_cast<float>(j) * d_sector;
 
-                auto x = xy * glm::cos(sector_angle);
-                auto y = xy * glm::sin(sector_angle);
+                auto x = xz * glm::cos(sector_angle);
+                auto z = xz * glm::sin(sector_angle);
+                auto u = static_cast<float>(j) / static_cast<float>(sectors);
+                auto v = static_cast<float>(i) / static_cast<float>(stacks);
 
                 auto pos = glm::vec3{x, y, z};
                 auto normal = glm::normalize(pos);
-                mesh._vertices.emplace_back(pos, normal, color);
+                auto uv = glm::vec2{1.0f - u, v};
+                mesh._vertices.emplace_back(pos, normal, color, uv);
             }
         }
 
@@ -169,15 +194,15 @@ public:
 
             for (u32 j = 0; j < sectors; ++j, ++k1, ++k2) {
                 if (i != 0) {
-                    mesh._indices.push_back(k1);
-                    mesh._indices.push_back(k2);
                     mesh._indices.push_back(k1 + 1);
+                    mesh._indices.push_back(k2);
+                    mesh._indices.push_back(k1);
                 }
 
                 if (i != (stacks - 1)) {
-                    mesh._indices.push_back(k1 + 1);
-                    mesh._indices.push_back(k2);
                     mesh._indices.push_back(k2 + 1);
+                    mesh._indices.push_back(k2);
+                    mesh._indices.push_back(k1 + 1);
                 }
             }
         }
@@ -190,7 +215,7 @@ public:
         float radius,
         float height,
         u32 sectors,
-        glm::vec3 color
+        glm::vec3 color = {1.0f, 1.0f, 1.0f}
     ) {
         Mesh mesh{};
 
@@ -208,16 +233,17 @@ public:
 
         // generate top circle vertices
         mesh._vertices.push_back(Vertex{
-            {0.0f, h, 0.0f}, {0.0f, 1.0f, 0.0f}, color});  // center
+            {0.0f, h, 0.0f}, {0.0f, 1.0f, 0.0f}, color, {0.25f, 0.75f}});
         for (u32 i = 0; i <= sectors; i++) {
             float x = d_cos[i];
             float z = d_sin[i];
+            // map uv to bottom left quadrant of texture
+            float u = (x / radius + 1.0f) * 0.25f;
+            float v = 0.5f + (z / radius + 1.0f) * 0.25f;
 
-            mesh._vertices.push_back({
-                {x, h, z},
-                {0.0f, 1.0f, 0.0f},
-                color,
-            });
+            mesh._vertices.push_back(
+                {{x, h, z}, {0.0f, 1.0f, 0.0f}, color, {u, v}}
+            );
         }
 
         // generate top circle indices
@@ -234,16 +260,17 @@ public:
         // generate bottom circle vertices
         u32 bottom_offset = static_cast<u32>(mesh._vertices.size());
         mesh._vertices.push_back(Vertex{
-            {0.0f, -h, 0.0f}, {0.0f, -1.0f, 0.0f}, color});  // center
+            {0.0f, -h, 0.0f}, {0.0f, -1.0f, 0.0f}, color, {0.25f, 0.75f}});
         for (u32 i = 0; i <= sectors; i++) {
             auto x = d_cos[i];
             auto z = d_sin[i];
+            // map uv to bottom left quadrant of texture
+            float u = (x / radius + 1.0f) * 0.25f;
+            float v = 1.0f - (z / radius + 1.0f) * 0.25f;
 
-            mesh._vertices.push_back({
-                {x, -h, z},
-                {0.0f, -1.0f, 0.0f},
-                color,
-            });
+            mesh._vertices.push_back(
+                {{x, -h, z}, {0.0f, -1.0f, 0.0f}, color, {u, v}}
+            );
         }
 
         // generate wall vertices (same as top/bottom, different normals)
@@ -254,9 +281,11 @@ public:
             glm::vec3 top{x, h, z};
             glm::vec3 bot{x, -h, z};
             glm::vec3 normal = glm::normalize(glm::vec3{x, 0.0f, z});
+            float u =
+                1.0f - static_cast<float>(i) / static_cast<float>(sectors);
 
-            mesh._vertices.push_back(Vertex{bot, normal, color});
-            mesh._vertices.push_back(Vertex{top, normal, color});
+            mesh._vertices.push_back(Vertex{bot, normal, color, {u, 0.5f}});
+            mesh._vertices.push_back(Vertex{top, normal, color, {u, 0.0f}});
         }
 
         // generate bottom circle indices
@@ -274,7 +303,7 @@ public:
         // generate cylinder wall indices
         auto end = sectors * 2;
         for (u32 i = 0; i <= end; i += 2) {
-            u32 j = (i + 2) % (end + 1);
+            u32 j = (i + 2) % (end + 2);
 
             // top and bottom vertices are interleaved
             auto k1 = wall_offset + i;
@@ -298,7 +327,7 @@ public:
         float radius_inner,
         u32 sectors,
         u32 segments,
-        glm::vec3 color
+        glm::vec3 color = {1.0f, 1.0f, 1.0f}
     ) {
         Mesh mesh{};
 
@@ -308,6 +337,7 @@ public:
         // generate circles along ring
         for (u32 i = 0; i <= segments; i++) {
             auto theta = static_cast<float>(i) * d_theta;
+            auto u = 1.0f - (theta / glm::two_pi<float>());
             for (u32 j = 0; j <= sectors; j++) {
                 auto phi = static_cast<float>(j) * d_phi;
 
@@ -316,9 +346,13 @@ public:
                 auto y = radius_inner * glm::sin(phi);
                 auto z = (radius_ring + radius_inner * glm::cos(phi)) *
                          glm::sin(theta);
+                auto v = 1.0f -
+                         (static_cast<float>(j) / static_cast<float>(sectors));
 
-                glm::vec3 v{x, y, z};
-                mesh._vertices.push_back({v, glm::normalize(v), color});
+                glm::vec3 vec{x, y, z};
+                mesh._vertices.push_back(
+                    {vec, glm::normalize(vec), color, {u, v}}
+                );
             }
         }
 
@@ -393,6 +427,12 @@ public:
                     };
                     // DEBUG: set color to normal
                     vertex.color = vertex.normal;
+
+                    // important to flip y coordinate for vulkan space
+                    vertex.uv = {
+                        attrib.texcoords[2 * idx.texcoord_index + 0],
+                        1.0f - attrib.texcoords[2 * idx.texcoord_index + 1],
+                    };
 
                     mesh._vertices.push_back(vertex);
                 }

@@ -9,6 +9,7 @@ set(ENGINE_HEADER_FILES
     "include/hvk/camera.hpp"
     "include/hvk/core.hpp"
     "include/hvk/debug_utils.hpp"
+    "include/hvk/descriptor_utils.hpp"
     "include/hvk/depth_buffer.hpp"
     "include/hvk/engine.hpp"
     "include/hvk/hello_vulkan.hpp"
@@ -28,6 +29,7 @@ set(ENGINE_SRC_FILES
     "src/allocator.cpp"
     "src/camera.cpp"
     "src/debug_utils.cpp"
+    "src/descriptor_utils.cpp"
     "src/depth_buffer.cpp"
     "src/engine.cpp"
     "src/logger.hpp"
@@ -122,6 +124,8 @@ set(SHADER_SRC_FILES
     "${SHADER_SOURCE_DIR}/hello_triangle.vert"
     "${SHADER_SOURCE_DIR}/hello_triangle.frag"
     "${SHADER_SOURCE_DIR}/wireframe.frag"
+    "${SHADER_SOURCE_DIR}/textured_lit.vert"
+    "${SHADER_SOURCE_DIR}/textured_lit.frag"
 )
 
 add_custom_command(

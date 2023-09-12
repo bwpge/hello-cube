@@ -105,6 +105,7 @@ public:
                static_cast<float>(extent.height);
     }
 
+    [[nodiscard]]
     static const QueueFamilyIndex& queue_families() {
         return instance()._queue_family;
     }
@@ -112,6 +113,22 @@ public:
     [[nodiscard]]
     static const vk::Queue& graphics_queue() {
         return instance()._graphics_queue;
+    }
+
+    [[nodiscard]]
+    static vk::DescriptorSet allocate_descriptor_set(
+        const vk::UniqueDescriptorPool& pool,
+        const vk::UniqueDescriptorSetLayout& layout
+    ) {
+        vk::DescriptorSetAllocateInfo alloc_info{};
+        alloc_info.setDescriptorPool(pool.get()).setSetLayouts(layout.get());
+
+        auto sets = instance()._device->allocateDescriptorSets(alloc_info);
+        HVK_ASSERT(
+            sets.size() == 1, "Allocation should create one descriptor set"
+        );
+
+        return sets[0];
     }
 
     void build_swapchain(GLFWwindow* window);
