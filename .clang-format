@@ -28,6 +28,7 @@ InsertBraces: true
 InsertTrailingCommas: Wrapped
 PackConstructorInitializers: CurrentLine
 PenaltyReturnTypeOnItsOwnLine: 1000
+PenaltyIndentedWhitespace: 1
 PointerAlignment: Left
 ReferenceAlignment: Pointer
 SeparateDefinitionBlocks: Always
