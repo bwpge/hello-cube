@@ -57,16 +57,27 @@ private:
 
 class DescriptorSetWriter {
 public:
-    DescriptorSetWriter& add_write(
+    DescriptorSetWriter& add_buffer_write(
         const vk::DescriptorSet& set,
         u32 binding,
         const DescriptorDetails& details,
         const vk::DescriptorBufferInfo& buffer_info
     );
+    DescriptorSetWriter& add_image_write(
+        const vk::DescriptorSet& set,
+        u32 binding,
+        const DescriptorDetails& details,
+        const vk::DescriptorImageInfo& image_info
+    );
     DescriptorSetWriter& write_buffers(
         const vk::DescriptorSet& set,
         const DescriptorSetBindingMap& binding_map,
         std::vector<vk::DescriptorBufferInfo> buffer_infos
+    );
+    DescriptorSetWriter& write_images(
+        const vk::DescriptorSet& set,
+        const DescriptorSetBindingMap& binding_map,
+        std::vector<vk::DescriptorImageInfo> image_infos
     );
 
     void update();

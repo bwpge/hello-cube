@@ -10,18 +10,23 @@
 
 namespace hvk {
 
-class Texture {
-public:
-    Texture() = default;
-    Texture(const Texture&) = delete;
-    Texture(Texture&& other) noexcept;
-    Texture& operator=(const Texture&) = delete;
-    Texture& operator=(Texture&& rhs) noexcept;
-    ~Texture();
+void transfer_image(const vk::UniqueCommandBuffer& cmd);
 
-    static Texture load(const std::filesystem::path& path, UploadContext& ctx) {
+class ImageResource {
+public:
+    ImageResource() = default;
+    ImageResource(const ImageResource&) = delete;
+    ImageResource(ImageResource&& other) noexcept;
+    ImageResource& operator=(const ImageResource&) = delete;
+    ImageResource& operator=(ImageResource&& rhs) noexcept;
+    ~ImageResource();
+
+    static ImageResource load(
+        const std::filesystem::path& path,
+        UploadContext& ctx
+    ) {
         spdlog::trace("Loading texture: {}", path.string());
-        Texture texture{};
+        ImageResource texture{};
 
         i32 width{};
         i32 height{};
@@ -31,14 +36,28 @@ public:
             path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha
         );
         HVK_ASSERT(pixels, "Failed to load texture");
-        // NOLINTNEXTLINE(readability-simplify-boolean-expr)
         HVK_ASSERT(
-            width >= 0 && height >= 0 && channels >= 0,
-            "STB returned invalid image dimensions"
+            width && height && channels,
+            spdlog::fmt_lib::format(
+                "STB returned invalid image dimensions: width={}, height={}, "
+                "channels={}",
+                width,
+                height,
+                channels
+            )
         );
+        usize size = static_cast<usize>(width) * static_cast<usize>(height) * 4;
+
+        // check if texture has varying alpha
+        for (usize i = 3; i < size; i += 4) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if (pixels[i] != 255) {
+                texture._has_alpha = true;
+                break;
+            }
+        }
 
         auto& allocator = VulkanContext::allocator();
-        usize size = static_cast<usize>(width) * static_cast<usize>(height) * 4;
 
         // copy image data to buffer
         auto staging_buf = allocator.create_staging_buffer(size);
@@ -74,7 +93,7 @@ public:
 
         ctx.oneshot(
             VulkanContext::graphics_queue(),
-            [=](vk::UniqueCommandBuffer& cmd) {
+            [=](const vk::UniqueCommandBuffer& cmd) {
                 // transition image to receive data
                 vk::ImageSubresourceRange range{
                     vk::ImageAspectFlagBits::eColor,
@@ -142,10 +161,43 @@ public:
         return texture;
     }
 
+    [[nodiscard]]
+    vk::UniqueImageView create_image_view(
+        vk::Format format = vk::Format::eR8G8B8A8Srgb,
+        vk::ImageAspectFlags aspect_mask = vk::ImageAspectFlagBits::eColor
+    ) const;
+    [[nodiscard]]
+    bool has_alpha() const;
+
 private:
     void destroy();
 
     AllocatedImage _image{};
+    bool _has_alpha{false};
+};
+
+class Texture {
+public:
+    Texture() = default;
+    explicit Texture(
+        const ImageResource& resource,
+        vk::Filter filter,
+        vk::SamplerAddressMode mode
+    );
+
+    [[nodiscard]]
+    const vk::Sampler& sampler() const;
+    [[nodiscard]]
+    const vk::ImageView& image_view() const;
+    [[nodiscard]]
+    vk::DescriptorImageInfo create_image_info(
+        vk::ImageLayout layout = vk::ImageLayout::eReadOnlyOptimal
+    ) const;
+
+private:
+    bool _has_alpha{};
+    vk::UniqueSampler _sampler{};
+    vk::UniqueImageView _view{};
 };
 
 }  // namespace hvk

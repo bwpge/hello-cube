@@ -129,9 +129,12 @@ private:
     glm::dvec2 _cursor{};
     Scene _scene{};
     Buffer _scene_ubo{};
+    DescriptorSetBindingMap _frame_bindings{};
+    DescriptorSetBindingMap _texture_bindings{};
 
     UploadContext _upload_ctx{};
     ShaderMap _shaders{};
+    std::unordered_map<std::string_view, ImageResource> _image_resources{};
     std::unordered_map<std::string_view, Texture> _textures{};
     DepthBuffer _depth_buffer{};
     std::vector<FrameData> _frames{};
@@ -140,6 +143,7 @@ private:
     vk::UniqueDescriptorPool _desc_pool{};
     vk::UniqueDescriptorSetLayout _global_desc_set_layout{};
     vk::UniqueDescriptorSetLayout _texture_set_layout{};
+    vk::DescriptorSet _texture_set{};
     usize _pipeline_idx{};
     GraphicsPipeline _pipelines{};
 };

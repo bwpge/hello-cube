@@ -25,7 +25,7 @@ UploadContext::UploadContext(u32 queue) {
 
 void UploadContext::oneshot(
     const vk::Queue& queue,
-    std::function<void(vk::UniqueCommandBuffer&)>&& op
+    std::function<void(const vk::UniqueCommandBuffer&)>&& op
 ) {
     const auto& device = VulkanContext::device();
 
@@ -52,7 +52,7 @@ void UploadContext::copy_staged(
     AllocatedBuffer& dst,
     vk::DeviceSize size
 ) {
-    oneshot(queue, [=](vk::UniqueCommandBuffer& cmd) {
+    oneshot(queue, [=](const vk::UniqueCommandBuffer& cmd) {
         vk::BufferCopy region{};
         region.setSize(size);
         cmd->copyBuffer(src.buffer, dst.buffer, region);

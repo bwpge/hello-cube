@@ -12,11 +12,16 @@ layout (set = 0, binding = 1) uniform SceneData {
 	vec4 lightDir;
 } scene;
 
-const float LIGHT_MIN = 0.05;
+layout (set = 1, binding = 0) uniform sampler2D tex;
+
+const float LIGHT_MIN = 0.5;
 
 void main() {
-    float light = max(LIGHT_MIN, dot(scene.lightDir.xyz, inNormal));
+    vec4 color = texture(tex, inTexCoord);
+    if (color.a < 0.01) {
+        discard;
+    }
 
-    vec3 color = vec3(inTexCoord, 0.5);
-    outColor = vec4(light * color, 1.0) * scene.lightColor;
+    float light = max(LIGHT_MIN, dot(scene.lightDir.rgb, inNormal));
+    outColor = vec4(light * color.rgb, color.a) * scene.lightColor;
 }

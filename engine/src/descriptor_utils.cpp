@@ -64,7 +64,7 @@ vk::UniqueDescriptorSetLayout DescriptorSetLayoutBuilder::build() {
     return layout;
 }
 
-DescriptorSetWriter& DescriptorSetWriter::add_write(
+DescriptorSetWriter& DescriptorSetWriter::add_buffer_write(
     const vk::DescriptorSet& set,
     u32 binding,
     const DescriptorDetails& details,
@@ -80,6 +80,22 @@ DescriptorSetWriter& DescriptorSetWriter::add_write(
     return *this;
 }
 
+DescriptorSetWriter& DescriptorSetWriter::add_image_write(
+    const vk::DescriptorSet& set,
+    u32 binding,
+    const DescriptorDetails& details,
+    const vk::DescriptorImageInfo& image_info
+) {
+    vk::WriteDescriptorSet write{};
+    write.setDstSet(set)
+        .setDstBinding(binding)
+        .setDescriptorType(details.type)
+        .setImageInfo(image_info);
+
+    _writes.push_back(write);
+    return *this;
+}
+
 DescriptorSetWriter& DescriptorSetWriter::write_buffers(
     const vk::DescriptorSet& set,
     const DescriptorSetBindingMap& binding_map,
@@ -90,7 +106,24 @@ DescriptorSetWriter& DescriptorSetWriter::write_buffers(
         "Number of buffers must be equal to number of mapped bindings"
     );
     for (u32 i = 0; i < buffer_infos.size(); i++) {
-        add_write(set, i, binding_map.at(i), buffer_infos[i]);
+        add_buffer_write(set, i, binding_map.at(i), buffer_infos[i]);
+    }
+
+    this->update();
+    return *this;
+}
+
+DescriptorSetWriter& DescriptorSetWriter::write_images(
+    const vk::DescriptorSet& set,
+    const DescriptorSetBindingMap& binding_map,
+    std::vector<vk::DescriptorImageInfo> image_infos
+) {
+    HVK_ASSERT(
+        binding_map.size() == image_infos.size(),
+        "Number of buffers must be equal to number of mapped bindings"
+    );
+    for (u32 i = 0; i < image_infos.size(); i++) {
+        add_image_write(set, i, binding_map.at(i), image_infos[i]);
     }
 
     this->update();

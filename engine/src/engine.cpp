@@ -196,6 +196,13 @@ void Engine::render() {
         frame.descriptor,
         _scene_ubo.dyn_offset(_frame_idx)
     );
+    cmd->bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        _pipelines.layout.get(),
+        1,
+        _texture_set,
+        nullptr
+    );
 
     auto camera = _camera.data();
     frame.camera_ubo.update(&camera);
@@ -430,12 +437,13 @@ void Engine::init_vulkan() {
     create_buffers();
     init_commands();
     load_shaders();
-    create_scene();
     init_renderpass();
     create_framebuffers();
     create_sync_obj();
     init_descriptors();
     create_pipelines();
+
+    create_scene();
 }
 
 void Engine::create_buffers() {
@@ -462,19 +470,32 @@ void Engine::load_shaders() {
         "wireframe", ShaderType::Fragment, "../shaders/wireframe.frag.spv"
     );
     _shaders.load(
-        "textured", ShaderType::Vertex, "../shaders/textured_lit.vert.spv"
+        "textured_lit", ShaderType::Vertex, "../shaders/textured_lit.vert.spv"
     );
     _shaders.load(
-        "textured", ShaderType::Fragment, "../shaders/textured_lit.frag.spv"
+        "textured_lit", ShaderType::Fragment, "../shaders/textured_lit.frag.spv"
     );
 }
 
 void Engine::create_scene() {
-    _textures["lost_empire-RGBA"] =
-        Texture::load("../assets/lost_empire-RGBA.png", _upload_ctx);
     {
-        auto mesh = Mesh::load_obj("../assets/lost_empire.obj");
-        mesh.set_translation({5.0f, -20.0f, 0.0f});
+        _image_resources["uv-test"] =
+            ImageResource::load("../assets/uv-test.png", _upload_ctx);
+        _textures["uv-test"] = Texture{
+            _image_resources["uv-test"],
+            vk::Filter::eLinear,
+            vk::SamplerAddressMode::eRepeat};
+
+        DescriptorSetWriter writer{};
+        writer.write_images(
+            _texture_set,
+            _texture_bindings,
+            {_textures["uv-test"].create_image_info()}
+        );
+    }
+    {
+        auto mesh = Mesh::load_obj("../assets/sponza.obj");
+        mesh.set_scale(0.02f);
         _scene.add_mesh(std::move(mesh));
     }
 
@@ -484,23 +505,20 @@ void Engine::create_scene() {
             auto x = static_cast<float>(2 * i);
             auto y = std::abs(i + j) % 2 == 0 ? -0.25f : 0.25f;
             auto z = static_cast<float>(2 * j);
-            auto r = static_cast<float>(std::abs(count + i)) / (2 * count);
-            auto g = static_cast<float>(std::abs(count + j)) / (2 * count);
-            auto color = glm::vec3{r, g, 1.0f};
 
             Mesh mesh{};
             switch (std::abs(i + j) % 4) {
                 case 0:
-                    mesh = Mesh::cube(0.5f, color);
+                    mesh = Mesh::cube();
                     break;
                 case 1:
-                    mesh = Mesh::sphere(0.4f, color, 36, 20);
+                    mesh = Mesh::sphere(0.4f, 36, 20);
                     break;
                 case 2:
-                    mesh = Mesh::cylinder(0.35f, 0.85f, 30, color);
+                    mesh = Mesh::cylinder(0.35f, 0.85f, 30);
                     break;
                 case 3:
-                    mesh = Mesh::torus(0.5f, 0.2f, 20, 36, color);
+                    mesh = Mesh::torus(0.5f, 0.2f, 20, 36);
             }
             mesh.set_translation({x, y, z});
             mesh.set_rotation({x, 0.0f, z});
@@ -646,18 +664,20 @@ void Engine::init_descriptors() {
     pool_info.setMaxSets(10).setPoolSizes(pool_sizes);
     _desc_pool = device.createDescriptorPoolUnique(pool_info);
 
-    DescriptorSetBindingMap frame_bindings{
+    _frame_bindings = DescriptorSetBindingMap{
         {vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex},
         {vk::DescriptorType::eUniformBufferDynamic,
          vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment},
     };
-    DescriptorSetBindingMap tex_bindings{
+    _texture_bindings = DescriptorSetBindingMap{
         {vk::DescriptorType::eCombinedImageSampler,
-         vk::ShaderStageFlagBits::eVertex},
+         vk::ShaderStageFlagBits::eFragment},
     };
 
-    _global_desc_set_layout = frame_bindings.build_layout();
-    _texture_set_layout = tex_bindings.build_layout();
+    _global_desc_set_layout = _frame_bindings.build_layout();
+    _texture_set_layout = _texture_bindings.build_layout();
+    _texture_set =
+        VulkanContext::allocate_descriptor_set(_desc_pool, _texture_set_layout);
 
     for (auto& frame : _frames) {
         // allocate the descriptor sets
@@ -669,7 +689,7 @@ void Engine::init_descriptors() {
         DescriptorSetWriter writer{};
         writer.write_buffers(
             frame.descriptor,
-            frame_bindings,
+            _frame_bindings,
             {
                 frame.camera_ubo.descriptor_buffer_info(),
                 _scene_ubo.descriptor_buffer_info(),
@@ -704,18 +724,20 @@ void Engine::create_pipelines() {
     _pipelines =
         builder.add_push_constant(push_constant)
             .add_descriptor_set_layout(_global_desc_set_layout)
-            // general render pipeline
+            .add_descriptor_set_layout(_texture_set_layout)
+            // textured pipeline
+            .new_pipeline()
+            .add_vertex_shader(_shaders.vertex("textured_lit"))
+            .add_fragment_shader(_shaders.fragment("textured_lit"))
+            .add_vertex_binding_description(Vertex::binding_desc())
+            .add_vertex_attr_description(Vertex::attr_desc())
+            .with_default_color_blend_transparency()
+            .with_default_viewport(swapchain.extent)
+            .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
+            // debug pipeline
             .new_pipeline()
             .add_vertex_shader(_shaders.vertex("mesh"))
             .add_fragment_shader(_shaders.fragment("mesh"))
-            .add_vertex_binding_description(Vertex::binding_desc())
-            .add_vertex_attr_description(Vertex::attr_desc())
-            .with_default_viewport(swapchain.extent)
-            .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
-            // textured pipeline
-            .new_pipeline()
-            .add_vertex_shader(_shaders.vertex("textured"))
-            .add_fragment_shader(_shaders.fragment("textured"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
             .with_default_viewport(swapchain.extent)

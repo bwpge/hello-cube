@@ -21,7 +21,7 @@ public:
 
     void oneshot(
         const vk::Queue& queue,
-        std::function<void(vk::UniqueCommandBuffer&)>&& op
+        std::function<void(const vk::UniqueCommandBuffer&)>&& op
     );
 
     void copy_staged(
