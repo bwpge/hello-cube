@@ -434,9 +434,21 @@ void Engine::init_vulkan() {
     spdlog::trace("Creating upload context");
     _upload_ctx = UploadContext{VulkanContext::queue_families().transfer};
 
+    // load shaders
+    std::vector<std::pair<std::string_view, ShaderType>> shaders{
+        {"../shaders/mesh.vert.spv", ShaderType::Vertex},
+        {"../shaders/mesh.vert.spv", ShaderType::Vertex},
+        {"../shaders/mesh.frag.spv", ShaderType::Fragment},
+        {"../shaders/wireframe.frag.spv", ShaderType::Fragment},
+        {"../shaders/textured_lit.vert.spv", ShaderType::Vertex},
+        {"../shaders/textured_lit.frag.spv", ShaderType::Fragment},
+    };
+    for (const auto& [path, type] : shaders) {
+        ResourceManager::load_shader(path, type);
+    }
+
     create_buffers();
     init_commands();
-    load_shaders();
     init_renderpass();
     create_framebuffers();
     create_sync_obj();
@@ -461,36 +473,16 @@ void Engine::create_buffers() {
     }
 }
 
-void Engine::load_shaders() {
-    spdlog::trace("Loading shaders");
-
-    _shaders.load("mesh", ShaderType::Vertex, "../shaders/mesh.vert.spv");
-    _shaders.load("mesh", ShaderType::Fragment, "../shaders/mesh.frag.spv");
-    _shaders.load(
-        "wireframe", ShaderType::Fragment, "../shaders/wireframe.frag.spv"
-    );
-    _shaders.load(
-        "textured_lit", ShaderType::Vertex, "../shaders/textured_lit.vert.spv"
-    );
-    _shaders.load(
-        "textured_lit", ShaderType::Fragment, "../shaders/textured_lit.frag.spv"
-    );
-}
-
 void Engine::create_scene() {
     {
-        _image_resources["uv-test"] =
-            ImageResource::load("../assets/uv-test.png", _upload_ctx);
-        _textures["uv-test"] = Texture{
-            _image_resources["uv-test"],
-            vk::Filter::eLinear,
-            vk::SamplerAddressMode::eRepeat};
+        ResourceManager::load_image("../assets/uv-test.png", _upload_ctx);
+        const auto& tex = ResourceManager::texture(
+            {"uv-test", vk::Filter::eLinear, vk::SamplerAddressMode::eRepeat}
+        );
 
         DescriptorSetWriter writer{};
         writer.write_images(
-            _texture_set,
-            _texture_bindings,
-            {_textures["uv-test"].create_image_info()}
+            _texture_set, _texture_bindings, {tex.create_image_info()}
         );
     }
     {
@@ -727,8 +719,9 @@ void Engine::create_pipelines() {
             .add_descriptor_set_layout(_texture_set_layout)
             // textured pipeline
             .new_pipeline()
-            .add_vertex_shader(_shaders.vertex("textured_lit"))
-            .add_fragment_shader(_shaders.fragment("textured_lit"))
+            .add_vertex_shader(ResourceManager::vertex_shader("textured_lit"))
+            .add_fragment_shader(ResourceManager::fragment_shader("textured_lit"
+            ))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
             .with_default_color_blend_transparency()
@@ -736,16 +729,16 @@ void Engine::create_pipelines() {
             .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             // debug pipeline
             .new_pipeline()
-            .add_vertex_shader(_shaders.vertex("mesh"))
-            .add_fragment_shader(_shaders.fragment("mesh"))
+            .add_vertex_shader(ResourceManager::vertex_shader("mesh"))
+            .add_fragment_shader(ResourceManager::fragment_shader("mesh"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
             .with_default_viewport(swapchain.extent)
             .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             // wireframe pipeline
             .new_pipeline()
-            .add_vertex_shader(_shaders.vertex("mesh"))
-            .add_fragment_shader(_shaders.fragment("wireframe"))
+            .add_vertex_shader(ResourceManager::vertex_shader("mesh"))
+            .add_fragment_shader(ResourceManager::fragment_shader("wireframe"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
             .with_default_viewport(swapchain.extent)

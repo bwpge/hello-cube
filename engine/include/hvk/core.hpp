@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <utility>
 
 #include <spdlog/spdlog.h>
@@ -15,15 +16,15 @@
 #define PANIC(msg)                                                      \
     do {                                                                \
         spdlog::critical("PANIC: {} ({}:{})", msg, __FILE__, __LINE__); \
-        throw std::runtime_error(msg);                                  \
+        abort();                                                        \
     } while (0)
 
-#define HVK_ASSERT(expr, msg)                                        \
-    do {                                                             \
-        if (!(expr)) {                                               \
-            spdlog::error("FAILED ASSERTION `{}`", STRINGIFY(expr)); \
-            PANIC(msg);                                              \
-        }                                                            \
+#define HVK_ASSERT(expr, msg)                                            \
+    do {                                                                 \
+        if (!(expr)) {                                                   \
+            spdlog::critical("FAILED ASSERTION: `{}`", STRINGIFY(expr)); \
+            PANIC(msg);                                                  \
+        }                                                                \
     } while (0)
 
 #define VK_CHECK(expr, msg)                \
@@ -50,3 +51,13 @@
             throw std::runtime_error(msg);                                 \
         }                                                                  \
     } while (0)
+
+namespace hvk {
+
+template <typename T>
+using Shared = std::shared_ptr<T>;
+
+template <typename T>
+using Unique = std::unique_ptr<T>;
+
+}  // namespace hvk

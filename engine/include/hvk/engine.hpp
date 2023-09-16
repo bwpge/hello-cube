@@ -16,6 +16,7 @@
 #include "hvk/descriptor_utils.hpp"
 #include "hvk/depth_buffer.hpp"
 #include "hvk/pipeline_builder.hpp"
+#include "hvk/resource_manager.hpp"
 #include "hvk/scene.hpp"
 #include "hvk/shader.hpp"
 #include "hvk/texture.hpp"
@@ -113,7 +114,6 @@ private:
     void init_descriptors();
     void create_pipelines();
     void create_sync_obj();
-    void load_shaders();
     void recreate_swapchain();
     void destroy_swapchain();
 
@@ -133,9 +133,6 @@ private:
     DescriptorSetBindingMap _texture_bindings{};
 
     UploadContext _upload_ctx{};
-    ShaderMap _shaders{};
-    std::unordered_map<std::string_view, ImageResource> _image_resources{};
-    std::unordered_map<std::string_view, Texture> _textures{};
     DepthBuffer _depth_buffer{};
     std::vector<FrameData> _frames{};
     vk::UniqueRenderPass _render_pass{};
