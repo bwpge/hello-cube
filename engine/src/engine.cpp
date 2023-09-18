@@ -133,9 +133,9 @@ void Engine::update(double dt) {
 
     // DEBUG: rotate some meshes
     auto t = static_cast<float>(dt);
-    auto& meshes = _scene.meshes();
-    for (u32 i = 1; i < meshes.size(); i++) {
-        meshes[i].rotate({-t, t, 0.0f});
+    auto& models = _scene.models();
+    for (u32 i = 1; i < models.size(); i++) {
+        models[i].rotate({-t, t, 0.0f});
     }
 }
 
@@ -207,11 +207,13 @@ void Engine::render() {
     auto camera = _camera.data();
     frame.camera_ubo.update(&camera);
 
-    for (const auto& mesh : _scene.meshes()) {
-        auto model = mesh.transform();
+    Material* current_material{};
+
+    for (const auto& model : _scene.models()) {
+        auto model_matrix = model.transform();
         auto constants = PushConstants{
-            model,
-            glm::transpose(glm::inverse(model)),
+            model_matrix,
+            glm::transpose(glm::inverse(model_matrix)),
         };
         cmd->pushConstants(
             _pipelines.layout.get(),
@@ -220,8 +222,18 @@ void Engine::render() {
             sizeof(PushConstants),
             &constants
         );
-        mesh.bind(cmd);
-        mesh.draw(cmd);
+        for (const auto& node : model.nodes()) {
+            if (current_material != node.material) {
+                cmd->bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    _pipelines.layout.get(),
+                    1,
+                    node.material->descriptor_set,
+                    nullptr
+                );
+            }
+            model.draw_node(node, cmd);
+        }
     }
 
     cmd->endRenderPass();
@@ -465,8 +477,8 @@ void Engine::create_buffers() {
     }
 
     auto ubo_alignment = Buffer::pad_alignment(sizeof(SceneData));
-    auto padded_size = ubo_alignment * _max_frames_in_flight;
-    _scene_ubo = Buffer{sizeof(SceneData), padded_size};
+    auto size = ubo_alignment * _max_frames_in_flight;
+    _scene_ubo = Buffer{sizeof(SceneData), size};
     for (u32 i = 0; i < _max_frames_in_flight; i++) {
         auto data = _scene.data();
         _scene_ubo.update_indexed(&data, i);
@@ -476,21 +488,24 @@ void Engine::create_buffers() {
 void Engine::create_scene() {
     {
         ResourceManager::load_image("../assets/uv-test.png", _upload_ctx);
-        const auto& tex = ResourceManager::texture(
+        const auto* tex = ResourceManager::texture(
             {"uv-test", vk::Filter::eLinear, vk::SamplerAddressMode::eRepeat}
         );
 
         DescriptorSetWriter writer{};
         writer.write_images(
-            _texture_set, _texture_bindings, {tex.create_image_info()}
+            _texture_set, _texture_bindings, {tex->create_image_info()}
         );
     }
     {
-        auto mesh = Mesh::load_obj("../assets/sponza.obj");
-        mesh.set_scale(0.02f);
-        _scene.add_mesh(std::move(mesh));
+        auto model = Model::load_obj("../assets/sponza.obj", _upload_ctx);
+        model.set_translation({0.0f, -2.0f, 0.0f});
+        model.set_rotation({0.0f, glm::radians(90.0f), 0.0f});
+        model.set_scale(0.02f);
+        _scene.add_model(std::move(model));
     }
 
+    auto* default_mat = ResourceManager::default_material();
     constexpr i32 count = 10;
     for (i32 i = -count; i <= count; i++) {
         for (i32 j = -count; j <= count; j++) {
@@ -498,28 +513,33 @@ void Engine::create_scene() {
             auto y = std::abs(i + j) % 2 == 0 ? -0.25f : 0.25f;
             auto z = static_cast<float>(2 * j);
 
-            Mesh mesh{};
+            Model model{};
             switch (std::abs(i + j) % 4) {
                 case 0:
-                    mesh = Mesh::cube();
+                    model = Model::cube(default_mat);
                     break;
                 case 1:
-                    mesh = Mesh::sphere(0.4f, 36, 20);
+                    model = Model::sphere(default_mat, 0.4f, 36, 20);
                     break;
                 case 2:
-                    mesh = Mesh::cylinder(0.35f, 0.85f, 30);
+                    model = Model::cylinder(default_mat, 0.35f, 0.85f, 30);
                     break;
                 case 3:
-                    mesh = Mesh::torus(0.5f, 0.2f, 20, 36);
+                    model = Model::torus(default_mat, 0.5f, 0.2f, 20, 36);
             }
-            mesh.set_translation({x, y, z});
-            mesh.set_rotation({x, 0.0f, z});
-            _scene.add_mesh(std::move(mesh));
+
+            model.set_translation({x, y, z});
+            model.set_rotation({x, 0.0f, z});
+            _scene.add_model(std::move(model));
         }
     }
 
-    for (auto& mesh : _scene.meshes()) {
-        mesh.upload(VulkanContext::graphics_queue(), _upload_ctx);
+    ResourceManager::prepare_materials(
+        _desc_pool, _texture_set_layout, _texture_bindings
+    );
+
+    for (auto& model : _scene.models()) {
+        model.upload(VulkanContext::graphics_queue(), _upload_ctx);
     }
 }
 
@@ -653,7 +673,8 @@ void Engine::init_descriptors() {
         {vk::DescriptorType::eCombinedImageSampler, 10},
     };
     vk::DescriptorPoolCreateInfo pool_info{};
-    pool_info.setMaxSets(10).setPoolSizes(pool_sizes);
+    // TODO(bwpge): properly calculate max sets
+    pool_info.setMaxSets(1000).setPoolSizes(pool_sizes);
     _desc_pool = device.createDescriptorPoolUnique(pool_info);
 
     _frame_bindings = DescriptorSetBindingMap{

@@ -2,6 +2,11 @@
 
 namespace hvk {
 
+ResourceManager::ResourceManager() {
+    _materials[ResourceManager::Key{}] =
+        std::make_unique<Material>(Material::none());
+}
+
 ResourceManager::Map<ResourceManager::Key, Unique<Shader>>& ResourceManager::
     get_shader_map(ShaderType type) {
     switch (type) {

@@ -1,8 +1,10 @@
 #pragma once
 
+#include "glm/glm.hpp"
+
 #include "hvk/core.hpp"
 #include "hvk/allocator.hpp"
-#include "hvk/mesh.hpp"
+#include "hvk/model.hpp"
 
 namespace hvk {
 
@@ -14,14 +16,14 @@ struct SceneData {
 class Scene {
 public:
     template <typename T>
-    void add_mesh(T&& mesh) {
-        _meshes.push_back(std::forward<T>(mesh));
+    void add_model(T&& model) {
+        _models.push_back(std::forward<T>(model));
     }
 
     [[nodiscard]]
-    const std::vector<Mesh>& meshes() const;
+    const std::vector<Model>& models() const;
     [[nodiscard]]
-    std::vector<Mesh>& meshes();
+    std::vector<Model>& models();
     [[nodiscard]]
     glm::vec3 light_dir() const;
     void set_light_dir(const glm::vec3& direction);
@@ -32,7 +34,7 @@ public:
     SceneData data() const;
 
 private:
-    std::vector<Mesh> _meshes{};
+    std::vector<Model> _models{};
     glm::vec3 _dir{glm::normalize(glm::vec3{0.0f, 1.0f, 1.0f})};
     glm::vec3 _color{1.0f};
     AllocatedBuffer _buf{};

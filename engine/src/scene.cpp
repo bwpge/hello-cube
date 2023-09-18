@@ -2,12 +2,12 @@
 
 namespace hvk {
 
-const std::vector<Mesh>& Scene::meshes() const {
-    return _meshes;
+const std::vector<Model>& Scene::models() const {
+    return _models;
 }
 
-std::vector<Mesh>& Scene::meshes() {
-    return _meshes;
+std::vector<Model>& Scene::models() {
+    return _models;
 }
 
 glm::vec3 Scene::light_dir() const {

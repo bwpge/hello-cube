@@ -22,6 +22,14 @@ public:
     ImageResource& operator=(ImageResource&& rhs) noexcept;
     ~ImageResource();
 
+    static ImageResource empty(UploadContext& ctx) {
+        spdlog::trace("Creating empty image resource");
+        ImageResource resource{};
+        std::array<u8, 4> pixel = {255, 255, 255, 255};
+        resource.upload(pixel.data(), 1, 1, 4, ctx);
+        return resource;
+    }
+
     [[nodiscard]]
     vk::UniqueImageView create_image_view(
         vk::Format format = vk::Format::eR8G8B8A8Srgb,
@@ -31,6 +39,13 @@ public:
     bool has_alpha() const;
 
 private:
+    void upload(
+        void* data,
+        i32 width,
+        i32 height,
+        i32 channels,
+        UploadContext& ctx
+    );
     void destroy();
 
     AllocatedImage _image{};

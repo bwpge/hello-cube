@@ -5,7 +5,11 @@
 #include <string>
 #include <string_view>
 
+#include <spdlog/fmt/ostr.h>
+
 #include "hvk/core.hpp"
+#include "hvk/descriptor_utils.hpp"
+#include "hvk/material.hpp"
 #include "hvk/texture.hpp"
 #include "hvk/shader.hpp"
 
@@ -13,9 +17,9 @@ namespace hvk {
 
 struct TextureInfo {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    std::string name;
-    vk::Filter filter;
-    vk::SamplerAddressMode mode;
+    std::string name{};
+    vk::Filter filter{vk::Filter::eLinear};
+    vk::SamplerAddressMode mode{vk::SamplerAddressMode::eRepeat};
 
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
@@ -24,9 +28,18 @@ struct TextureInfo {
             name == other.name && filter == other.filter && mode == other.mode
         );
     }
+
+    friend std::ostream& operator<<(std::ostream& os, const TextureInfo& self) {
+        return os << "'" << self.name
+                  << "' (filter=" << vk::to_string(self.filter)
+                  << ", mode=" << vk::to_string(self.mode) << ")";
+    }
 };
 
 }  // namespace hvk
+
+template <>
+struct fmt::formatter<hvk::TextureInfo> : fmt::ostream_formatter {};
 
 template <>
 struct std::hash<hvk::TextureInfo> {
@@ -47,6 +60,8 @@ private:
     using Map = std::unordered_map<K, V>;
 
 public:
+    ResourceManager();
+
     static ResourceManager& get() {
         static ResourceManager instance{};
         return instance;
@@ -87,19 +102,24 @@ public:
         HVK_ASSERT(!key.empty(), "Image resource name should not be empty");
 
         auto& map = get()._images;
+        if (map.find(key) != map.end()) {
+            spdlog::trace("Image resource '{}' already exists", key);
+            return *map[key];
+        }
 
         map[key] = std::make_unique<ImageResource>(path, ctx);
         spdlog::trace("Created image resource '{}'", key);
         return *map[key];
     }
 
-    static const Texture& texture(const TextureInfo& info) {
+    static Texture* texture(const TextureInfo& info) {
         auto& map = get()._textures;
         if (map.find(info) != map.end()) {
-            return *map[info];
+            return map[info].get();
         }
 
-        const auto* resource_ptr = get()._images[info.name].get();
+        spdlog::trace("Creating texture {}", info);
+        const auto* resource_ptr = get()._images.at(info.name).get();
         HVK_ASSERT(
             resource_ptr,
             spdlog::fmt_lib::format("Image resource '{}' not found", info.name)
@@ -107,7 +127,66 @@ public:
 
         map[info] =
             std::make_unique<Texture>(*resource_ptr, info.filter, info.mode);
-        return *map[info];
+        return map[info].get();
+    }
+
+    static Texture* default_texture() {
+        return ResourceManager::texture({});
+    }
+
+    static Material* make_material(
+        const Key& name,
+        const std::filesystem::path& base_dir,
+        glm::vec3 ambient_base,
+        const std::filesystem::path& ambient_tex,
+        UploadContext& ctx
+    ) {
+        auto& map = get()._materials;
+        if (map.find(name) != map.end()) {
+            spdlog::trace("Material '{}' already exists", name);
+            return map[name].get();
+        }
+
+        spdlog::trace("Creating material '{}'", name);
+        Material material{};
+        material.base_color_factor = glm::vec4{ambient_base, 1.0f};
+
+        // check if texture is set
+        if (!ambient_tex.empty()) {
+            auto ambient = base_dir / ambient_tex;
+            ResourceManager::load_image(ambient, ctx);
+            TextureInfo tex_info{.name = ambient.stem().string()};
+            material.base_color_texture = ResourceManager::texture(tex_info);
+        }
+        // if not lazy initialize empty texture and use that
+        else {
+            auto& images = get()._images;
+            if (images.find({}) == images.end()) {
+                images[{}] =
+                    std::make_unique<ImageResource>(ImageResource::empty(ctx));
+            }
+            material.base_color_texture = ResourceManager::texture({});
+        }
+
+        map[name] = std::make_unique<Material>(material);
+        return map[name].get();
+    }
+
+    static Material* material(const Key& name) {
+        return get()._materials.at(name).get();
+    }
+
+    static Material* default_material() {
+        return ResourceManager::material({});
+    }
+
+    static void prepare_materials(
+        const vk::UniqueDescriptorPool& pool,
+        const vk::UniqueDescriptorSetLayout& layout,
+        const DescriptorSetBindingMap& binding_map
+    ) {
+        allocate_material_descriptors(pool, layout);
+        update_material_descriptors(binding_map);
     }
 
 private:
@@ -128,6 +207,33 @@ private:
         return key.string();
     }
 
+    static void allocate_material_descriptors(
+        const vk::UniqueDescriptorPool& pool,
+        const vk::UniqueDescriptorSetLayout& layout
+    ) {
+        for (auto& [_, material] : get()._materials) {
+            material->descriptor_set =
+                VulkanContext::allocate_descriptor_set(pool, layout);
+        }
+    }
+
+    static void update_material_descriptors(
+        const DescriptorSetBindingMap& binding_map
+    ) {
+        DescriptorSetWriter writer{};
+        for (auto& [_, material] : get()._materials) {
+            std::vector<vk::DescriptorImageInfo> info{};
+            if (material->base_color_texture) {
+                info.push_back(material->base_color_texture->create_image_info()
+                );
+            } else {
+                const auto* tex = ResourceManager::default_texture();
+                info.push_back(tex->create_image_info());
+            }
+            writer.write_images(material->descriptor_set, binding_map, info);
+        }
+    }
+
     Map<Key, Unique<Shader>>& get_shader_map(ShaderType type);
 
     Map<Key, Unique<Shader>> _vert_shaders{};
@@ -136,6 +242,7 @@ private:
     Map<Key, Unique<Shader>> _comp_shaders{};
     Map<Key, Unique<ImageResource>> _images{};
     Map<TextureInfo, Unique<Texture>> _textures{};
+    Map<Key, Unique<Material>> _materials{};
 };
 
 }  // namespace hvk

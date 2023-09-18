@@ -11,17 +11,18 @@
 #include <glm/glm.hpp>
 
 #include "hvk/allocator.hpp"
+#include "hvk/buffer.hpp"
 #include "hvk/camera.hpp"
 #include "hvk/core.hpp"
 #include "hvk/descriptor_utils.hpp"
 #include "hvk/depth_buffer.hpp"
+#include "hvk/model.hpp"
 #include "hvk/pipeline_builder.hpp"
 #include "hvk/resource_manager.hpp"
 #include "hvk/scene.hpp"
 #include "hvk/shader.hpp"
 #include "hvk/texture.hpp"
 #include "hvk/timer.hpp"
-#include "hvk/buffer.hpp"
 #include "hvk/vk_context.hpp"
 
 struct GLFWwindow;

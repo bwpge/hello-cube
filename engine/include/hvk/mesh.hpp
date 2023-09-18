@@ -13,12 +13,6 @@
 
 namespace hvk {
 
-struct Transform {
-    glm::vec3 translation{0.0f};
-    glm::vec3 rotation{0.0f};
-    glm::vec3 scale{1.0f};
-};
-
 struct Vertex {
     glm::vec3 position{};
     glm::vec3 normal{};
@@ -78,7 +72,7 @@ public:
     Mesh& operator=(Mesh&&) noexcept = default;
     ~Mesh();
 
-    static Mesh quad(glm::vec3 color) {
+    static Mesh quad(glm::vec3 color = {1.0f, 1.0f, 1.0f}) {
         Mesh mesh{};
         mesh._vertices = {
             {{-0.5f, -0.5f, 0.0f}, {0.f, 0.f, 1.f}, color},
@@ -379,70 +373,6 @@ public:
         return mesh;
     }
 
-    static Mesh load_obj(const std::filesystem::path& path) {
-        spdlog::trace("Loading mesh: {}", path.string());
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-
-        std::string warn;
-        std::string err;
-
-        tinyobj::LoadObj(
-            &attrib,
-            &shapes,
-            &materials,
-            &warn,
-            &err,
-            path.string().c_str(),
-            path.parent_path().string().c_str()
-        );
-        if (!warn.empty()) {
-            spdlog::warn("[tiny_obj_loader] {}", warn);
-        }
-        if (!err.empty()) {
-            PANIC(spdlog::fmt_lib::format("[tiny_obj_loader] {}", err));
-        }
-
-        Mesh mesh{};
-
-        const usize vert_count = 3;
-        for (auto& shape : shapes) {
-            usize offset = 0;
-            for (usize i = 0; i < shape.mesh.num_face_vertices.size(); i++) {
-                // hardcode loading triangles
-                for (usize j = 0; j < vert_count; j++) {
-                    tinyobj::index_t idx = shape.mesh.indices[offset + j];
-
-                    Vertex vertex{};
-                    vertex.position = {
-                        attrib.vertices[3 * idx.vertex_index + 0],
-                        attrib.vertices[3 * idx.vertex_index + 1],
-                        attrib.vertices[3 * idx.vertex_index + 2],
-                    };
-                    vertex.normal = {
-                        attrib.normals[3 * idx.normal_index + 0],
-                        attrib.normals[3 * idx.normal_index + 1],
-                        attrib.normals[3 * idx.normal_index + 2],
-                    };
-                    // DEBUG: set color to normal
-                    vertex.color = vertex.normal;
-
-                    // important to flip y coordinate for vulkan space
-                    vertex.uv = {
-                        attrib.texcoords[2 * idx.texcoord_index + 0],
-                        1.0f - attrib.texcoords[2 * idx.texcoord_index + 1],
-                    };
-
-                    mesh._vertices.push_back(vertex);
-                }
-                offset += vert_count;
-            }
-        }
-
-        return mesh;
-    }
-
     [[nodiscard]]
     glm::mat4 transform() const;
     void upload(const vk::Queue& queue, UploadContext& ctx);
@@ -452,12 +382,7 @@ public:
     void draw(const vk::CommandBuffer& cmd) const;
     void destroy();
 
-    void translate(glm::vec3 translation);
-    void set_translation(glm::vec3 position);
-    void rotate(glm::vec3 rotation);
-    void set_rotation(glm::vec3 rotation);
-    void scale(float scale);
-    void set_scale(float scale);
+    friend class Model;
 
 private:
     template <typename T>
@@ -491,7 +416,6 @@ private:
         std::swap(buffer, gpu_buf);
     }
 
-    Transform _transform{};
     std::vector<Vertex> _vertices{};
     std::vector<u32> _indices{};
 
