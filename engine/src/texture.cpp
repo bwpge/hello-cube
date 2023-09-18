@@ -17,12 +17,11 @@ ImageResource::ImageResource(
         path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha
     );
     HVK_ASSERT(
-        pixels,
-        spdlog::fmt_lib::format("Failed to load texture '{}'", path.string())
+        pixels, fmt::format("Failed to load texture '{}'", path.string())
     );
     HVK_ASSERT(
         width && height && channels,
-        spdlog::fmt_lib::format(
+        fmt::format(
             "STB returned invalid image dimensions: width={}, height={}, "
             "channels={}",
             width,

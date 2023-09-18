@@ -4,6 +4,10 @@ project(hvklib VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ==============
+# PROJECT SOURCE
+# ==============
+
 set(ENGINE_HEADER_FILES
     "include/hvk/allocator.hpp"
     "include/hvk/camera.hpp"
@@ -54,18 +58,6 @@ set(ENGINE_SRC_FILES
 add_library(${PROJECT_NAME} STATIC ${ENGINE_HEADER_FILES};${ENGINE_SRC_FILES})
 add_library(hvklib::hvklib ALIAS hvklib)
 
-# compiler specific options
-if(MSVC)
-    # use static runtime linking on msvc
-    set_property(TARGET ${PROJECT_NAME}
-        PROPERTY
-            MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
-    )
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
-else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-endif()
-
 # precompiled header
 target_precompile_headers(${PROJECT_NAME}
     PRIVATE
@@ -85,14 +77,36 @@ target_precompile_headers(${PROJECT_NAME}
         "<utility>"
         "<vector>"
         "<vulkan/vulkan.hpp>"
+        "<fmt/core.h>"
+        "<fmt/format.h>"
         "<vk_mem_alloc.h>"
         "<stb_image.h>"
 )
 
-# configure options
+# ================
+# COMPILER OPTIONS
+# ================
+
+if(MSVC)
+    # use static runtime linking on msvc
+    set_property(TARGET ${PROJECT_NAME}
+        PROPERTY
+            MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+# ============
+# DEPENDENCIES
+# ============
+
+# configure dependency options
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
 
 # NOTE: find_package needs to know about the VulkanSDK, which should be configured
 #   through the SDK installer, however the editor may not know about the include
@@ -105,20 +119,31 @@ find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)
 message("   -> lib:     ${Vulkan_LIBRARIES}")
 message("   -> include: ${Vulkan_INCLUDE_DIR}")
 message("   -> glslc:   ${glslc_executable}")
-message(STATUS "Configuring package: VulkanMemoryAllocator")
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-message(STATUS "Configuring package: spdlog")
-find_package(spdlog CONFIG REQUIRED)
-message(STATUS "Configuring package: glfw")
-find_package(glfw3 CONFIG REQUIRED)
-message(STATUS "Configuring package: glm")
-find_package(glm CONFIG REQUIRED)
-message(STATUS "Configuring package: tinyobjloader")
-find_package(tinyobjloader CONFIG REQUIRED)
-message(STATUS "Configuring package: stb")
-find_package(Stb REQUIRED)
 
-# build shaders
+set(packages
+    "VulkanMemoryAllocator"
+    "fmt"
+    "spdlog"
+    "glfw3"
+    "glm"
+    "tinyobjloader"
+)
+set(packages_no_cfg
+    "Stb"
+)
+foreach(pkg ${packages})
+    message(STATUS "Adding package: ${pkg}")
+    find_package(${pkg} CONFIG REQUIRED)
+endforeach()
+foreach(pkg ${packages_no_cfg})
+    message(STATUS "Adding package: ${pkg}")
+    find_package(${pkg} REQUIRED)
+endforeach()
+
+# ==================
+# SHADER COMPILATION
+# ==================
+
 set(SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders")
 set(SHADER_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders")
 
@@ -134,6 +159,7 @@ set(SHADER_SRC_FILES
     "${SHADER_SOURCE_DIR}/textured_lit.frag"
 )
 
+# run glslc for each shader
 add_custom_command(
     COMMAND
     ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIR}
@@ -141,6 +167,7 @@ add_custom_command(
     COMMENT "Creating ${SHADER_BINARY_DIR}"
 )
 
+# copy spv files to output directory
 foreach(SHADER_SRC IN LISTS SHADER_SRC_FILES)
     get_filename_component(FILE_NAME ${SHADER_SRC} NAME)
     set(SPV_SHADER "${SHADER_BINARY_DIR}/${FILE_NAME}.spv")
@@ -155,13 +182,21 @@ endforeach()
 add_custom_target(compile-shaders ALL DEPENDS ${SPV_SHADERS})
 add_dependencies(hvklib compile-shaders)
 
-set(MODEL_SRC_DIR "${CMAKE_SOURCE_DIR}/assets")
-set(MODEL_OUT_DIR "${CMAKE_BINARY_DIR}/assets")
+# ==============
+# PROJECT ASSETS
+# ==============
+
+set(ASSET_SRC_DIR "${CMAKE_SOURCE_DIR}/assets")
+set(ASSET_OUT_DIR "${CMAKE_BINARY_DIR}/assets")
 add_custom_target(copy-assets
     COMMAND
-    ${CMAKE_COMMAND} -E copy_directory ${MODEL_SRC_DIR} ${MODEL_OUT_DIR}
+    ${CMAKE_COMMAND} -E copy_directory "${ASSET_SRC_DIR}" "${ASSET_OUT_DIR}"
 )
 add_dependencies(hvklib copy-assets)
+
+# ============================
+# COMPILER DEFINITIONS/LINKING
+# ============================
 
 target_compile_definitions(hvklib
     PUBLIC
@@ -169,18 +204,17 @@ target_compile_definitions(hvklib
         GLM_ENABLE_EXPERIMENTAL
 )
 
-# includes
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
         "$<BUILD_INTERFACE:${Vulkan_INCLUDE_DIR}>"
 )
 
-# linking
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         glfw
         spdlog::spdlog
+        fmt::fmt
     PRIVATE
         Vulkan::Vulkan
         glm::glm

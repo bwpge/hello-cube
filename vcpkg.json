@@ -9,6 +9,14 @@
     "spdlog",
     "tinyobjloader",
     "vulkan-memory-allocator",
-    "stb"
+    "stb",
+    "fmt",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "vulkan-binding"
+      ]
+    }
   ]
 }

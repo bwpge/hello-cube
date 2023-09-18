@@ -109,7 +109,7 @@ public:
             spdlog::warn("[tiny_obj_loader] {}", warn);
         }
         if (!err.empty()) {
-            PANIC(spdlog::fmt_lib::format("[tiny_obj_loader] {}", err));
+            PANIC(fmt::format("[tiny_obj_loader] {}", err));
         }
 
         Model model{};

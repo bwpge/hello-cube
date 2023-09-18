@@ -58,12 +58,9 @@ void VulkanContext::create_instance(
     };
 
     spdlog::debug(
-        "Requested instance extensions: [{}]",
-        spdlog::fmt_lib::join(extensions, ", ")
+        "Requested instance extensions: [{}]", fmt::join(extensions, ", ")
     );
-    spdlog::debug(
-        "Requested instance layers: [{}]", spdlog::fmt_lib::join(layers, ", ")
-    );
+    spdlog::debug("Requested instance layers: [{}]", fmt::join(layers, ", "));
 
     vk::InstanceCreateInfo create_info{};
     create_info.setPApplicationInfo(&app_info)

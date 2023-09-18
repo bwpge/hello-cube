@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <format>
 #include <unordered_map>
 #include <string>
 #include <string_view>
@@ -30,8 +31,12 @@ struct TextureInfo {
     }
 
     friend std::ostream& operator<<(std::ostream& os, const TextureInfo& self) {
-        return os << "'" << self.name
-                  << "' (filter=" << vk::to_string(self.filter)
+        if (self.name.empty()) {
+            os << "<empty>";
+        } else {
+            os << "'" << self.name << "'";
+        }
+        return os << " (filter=" << vk::to_string(self.filter)
                   << ", mode=" << vk::to_string(self.mode) << ")";
     }
 };
@@ -122,7 +127,7 @@ public:
         const auto* resource_ptr = get()._images.at(info.name).get();
         HVK_ASSERT(
             resource_ptr,
-            spdlog::fmt_lib::format("Image resource '{}' not found", info.name)
+            fmt::format("Image resource '{}' not found", info.name)
         );
 
         map[info] =

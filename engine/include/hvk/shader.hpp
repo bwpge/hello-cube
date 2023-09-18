@@ -19,9 +19,8 @@ public:
         Shader result{};
 
         if (!file.is_open()) {
-            PANIC(spdlog::fmt_lib::format(
-                "failed to open shader file '{}'", path.string()
-            ));
+            PANIC(fmt::format("failed to open shader file '{}'", path.string())
+            );
         }
 
         auto size = file.tellg();
@@ -53,7 +52,7 @@ enum class ShaderType {
 }  // namespace hvk
 
 template <>
-struct spdlog::fmt_lib::formatter<hvk::ShaderType> {
+struct fmt::formatter<hvk::ShaderType> {
     template <typename ParseContext>
     constexpr auto parse(ParseContext& ctx) {
         return ctx.begin();
@@ -77,6 +76,6 @@ struct spdlog::fmt_lib::formatter<hvk::ShaderType> {
                 break;
         }
 
-        return spdlog::fmt_lib::format_to(ctx.out(), "{0}", result);
+        return fmt::format_to(ctx.out(), "{0}", result);
     }
 };

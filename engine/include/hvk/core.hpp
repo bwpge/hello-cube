@@ -3,6 +3,8 @@
 #include <memory>
 #include <utility>
 
+#include <fmt/core.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vk_enum_string_helper.h>
 
