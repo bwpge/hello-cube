@@ -92,6 +92,70 @@ void VulkanContext::create_surface(GLFWwindow* window) {
     }
 }
 
+void VulkanContext::select_queue_families() {
+    auto queue_family_props = _gpu.getQueueFamilyProperties();
+    auto idx_graphics = std::vector<u32>{};
+    auto idx_present = std::vector<u32>();
+    auto idx_transfer = std::vector<u32>();
+
+    for (u32 i = 0; i < static_cast<u32>(queue_family_props.size()); i++) {
+        const auto props = queue_family_props[i];
+        const auto has_graphics =
+            props.queueFlags & vk::QueueFlagBits::eGraphics;
+        const auto has_present =
+            _gpu.getSurfaceSupportKHR(i, _surface.get()) == VK_TRUE;
+        const auto has_transfer =
+            (props.queueFlags & vk::QueueFlagBits::eTransfer);
+
+        if (has_graphics) {
+            idx_graphics.push_back(i);
+        }
+        if (has_present) {
+            idx_present.push_back(i);
+        }
+        if (has_transfer) {
+            idx_transfer.push_back(i);
+        }
+    }
+    spdlog::trace(
+        "Enumerated queue families by capabilities:\n"
+        "    Graphics: {}\n"
+        "    Present:  {}\n"
+        "    Transfer: {}",
+        fmt::join(idx_graphics, ", "),
+        fmt::join(idx_present, ", "),
+        fmt::join(idx_transfer, ", ")
+    );
+
+    if (idx_graphics.empty() || idx_present.empty() || idx_transfer.empty()) {
+        PANIC("Failed to locate required queue indices");
+    }
+
+    _queue_family = {
+        idx_graphics[0],
+        idx_present[0],
+        idx_transfer[0],
+    };
+    // try to find a different graphics/transfer queue, but transfers
+    // need graphics capabilities to transition images to shader stages
+    // (without a ton of boilerplate code for different transitions)
+    for (const auto i : idx_transfer) {
+        if (i != _queue_family.graphics && i != _queue_family.present &&
+            queue_family_props[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+            _queue_family.transfer = i;
+        }
+    }
+    spdlog::debug(
+        "Selected queue family indices:\n"
+        "    Graphics: {}\n"
+        "    Present:  {}\n"
+        "    Transfer: {}",
+        _queue_family.graphics,
+        _queue_family.present,
+        _queue_family.transfer
+    );
+}
+
 void VulkanContext::create_device() {
     spdlog::trace("Selecting physical device");
 
@@ -102,7 +166,7 @@ void VulkanContext::create_device() {
         devices.size() == 1 ? "device" : "devices"
     );
 
-    i32 selected = -1;
+    std::optional<i32> selected{};
     for (i32 i = 0; i < static_cast<i32>(devices.size()); i++) {
         auto p = devices[i].getProperties();
         if (p.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
@@ -110,91 +174,77 @@ void VulkanContext::create_device() {
             spdlog::debug(
                 "Selected device '{}'", static_cast<const char*>(p.deviceName)
             );
-            _gpu = devices[selected];
+            selected = i;
             break;
         }
     }
-    if (selected < 0) {
+    if (!selected.has_value()) {
         PANIC("Failed to locate a suitable device");
     }
 
-    _gpu = devices[selected];
+    _gpu = devices[selected.value()];
+    select_queue_families();
 
-    spdlog::debug("Enumerating queue family properties...");
-    auto queues = _gpu.getQueueFamilyProperties();
-    auto idx_graphics = std::optional<u32>{};
-    auto idx_present = std::optional<u32>();
-    auto idx_transfer = std::optional<u32>();
+    auto unique_queues = std::unordered_map<u32, u32>{};
+    unique_queues[_queue_family.graphics] += 1;
+    unique_queues[_queue_family.present] += 1;
+    unique_queues[_queue_family.transfer] += 1;
 
-    for (u32 i = 0; i < static_cast<u32>(queues.size()); i++) {
-        const auto props = queues[i];
-        const auto has_graphics =
-            props.queueFlags & vk::QueueFlagBits::eGraphics;
-        const auto has_present =
-            _gpu.getSurfaceSupportKHR(i, _surface.get()) == VK_TRUE;
-        const auto has_transfer =
-            (props.queueFlags & vk::QueueFlagBits::eTransfer);
-
-        if (has_graphics) {
-            spdlog::debug("Found graphics queue: index={}", i);
-            idx_graphics = i;
-        }
-        if (has_present) {
-            spdlog::debug("Found present queue: index={}", i);
-            idx_present = i;
-        }
-        if (has_transfer) {
-            spdlog::debug("Found transfer queue: index={}", i);
-            idx_transfer = i;
-        }
-        if (idx_graphics.has_value() && idx_present.has_value() &&
-            idx_transfer.has_value()) {
-            break;
-        }
+    auto priorities = std::vector<std::vector<float>>(unique_queues.size());
+    for (const auto& [idx, count] : unique_queues) {
+        // TODO(bwpge): provide actual queue priorities
+        priorities[idx] = std::vector<float>(count, 1.0f);
     }
 
-    if (!idx_graphics.has_value() || !idx_present.has_value() ||
-        !idx_transfer.has_value()) {
-        PANIC("Failed to locate required queue indices");
-    }
-    _queue_family.graphics = idx_graphics.value();
-    _queue_family.present = idx_present.value();
-    _queue_family.transfer = idx_transfer.value();
-
-    f32 priority = 1.0f;
-    auto unique_idx = std::set<u32>{
-        _queue_family.graphics, _queue_family.present, _queue_family.transfer};
-    auto infos = std::vector<vk::DeviceQueueCreateInfo>{};
-
-    for (u32 idx : unique_idx) {
-        vk::DeviceQueueCreateInfo dqci{{}, idx, 1, &priority, nullptr};
-        infos.push_back(dqci);
+    auto queue_create_infos = std::vector<vk::DeviceQueueCreateInfo>{};
+    for (const auto& [idx, _] : unique_queues) {
+        vk::DeviceQueueCreateInfo dqci{};
+        dqci.setQueueFamilyIndex(idx).setQueuePriorities(priorities[idx]);
+        queue_create_infos.push_back(dqci);
     }
 
+    // required to render wireframe (VK_POLYGON_MODE_LINE)
     vk::PhysicalDeviceFeatures features{};
     features.setFillModeNonSolid(VK_TRUE);
 
     // https://stackoverflow.com/questions/73746051/vulkan-how-to-enable-synchronization-2-feature
     // need to enable synchronization2 feature to use
     // VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL
-    vk::PhysicalDeviceSynchronization2Features pdsf{};
-    pdsf.setSynchronization2(VK_TRUE);
+    vk::PhysicalDeviceSynchronization2Features sync_features{};
+    sync_features.setSynchronization2(VK_TRUE);
 
     // https://vulkan.lunarg.com/doc/view/1.3.250.1/windows/1.3-extensions/vkspec.html#VUID-VkAttachmentReference2-separateDepthStencilLayouts-03313
     // need to enable to use VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL in depth
     // attachment for render subpass
-    vk::PhysicalDeviceVulkan12Features pdv12f{};
-    pdv12f.setSeparateDepthStencilLayouts(VK_TRUE).setPNext(&pdsf);
+    vk::PhysicalDeviceVulkan12Features phys_v12_features{};
+    phys_v12_features.setSeparateDepthStencilLayouts(VK_TRUE);
 
-    vk::DeviceCreateInfo dci{};
+    vk::DeviceCreateInfo create_info{};
     auto extensions = std::vector{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    dci.setQueueCreateInfos(infos)
+    create_info.setQueueCreateInfos(queue_create_infos)
         .setPEnabledFeatures(&features)
-        .setPEnabledExtensionNames(extensions)
-        .setPNext(&pdv12f);
+        .setPEnabledExtensionNames(extensions);
+    vk::StructureChain create_info_chain = {
+        create_info,
+        sync_features,
+        phys_v12_features,
+    };
 
-    _device = _gpu.createDeviceUnique(dci);
-    _graphics_queue = _device->getQueue(_queue_family.graphics, 0);
+    _device = _gpu.createDeviceUnique(create_info_chain.get());
+
+    u32 queue_num{};
+    spdlog::debug(
+        "Storing graphics queue handle: family={} (#{})",
+        _queue_family.graphics,
+        queue_num
+    );
+    _graphics_queue = _device->getQueue(_queue_family.graphics, queue_num++);
+    spdlog::debug(
+        "Storing transfer queue handle: family={} (#{})",
+        _queue_family.graphics,
+        queue_num
+    );
+    _transfer_queue = _device->getQueue(_queue_family.transfer, queue_num);
 }
 
 void VulkanContext::create_allocator() {
@@ -217,7 +267,7 @@ void VulkanContext::build_swapchain(GLFWwindow* window) {
         img_count = capabilities.maxImageCount;
     }
 
-    vk::SwapchainCreateInfoKHR scci{
+    vk::SwapchainCreateInfoKHR create_info{
         {},
         _surface.get(),
         img_count,
@@ -230,27 +280,29 @@ void VulkanContext::build_swapchain(GLFWwindow* window) {
     if (_queue_family.graphics != _queue_family.present) {
         auto indices =
             std::vector{_queue_family.graphics, _queue_family.present};
-        scci.setImageSharingMode(vk::SharingMode::eConcurrent)
+        create_info.setImageSharingMode(vk::SharingMode::eConcurrent)
             .setQueueFamilyIndices(indices);
     } else {
-        scci.setImageSharingMode(vk::SharingMode::eExclusive);
+        create_info.setImageSharingMode(vk::SharingMode::eExclusive);
     }
-    scci.setPreTransform(capabilities.currentTransform)
+    create_info.setPreTransform(capabilities.currentTransform)
         .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
         .setPresentMode(mode)
         .setClipped(VK_TRUE);
 
-    _swapchain.handle = _device->createSwapchainKHRUnique(scci);
+    _swapchain.handle = _device->createSwapchainKHRUnique(create_info);
     _swapchain.images = _device->getSwapchainImagesKHR(_swapchain.handle.get());
 
     _swapchain.image_views.clear();
     for (auto img : _swapchain.images) {
-        vk::ImageViewCreateInfo ivci{};
-        ivci.setImage(img)
+        vk::ImageViewCreateInfo info{};
+        info.setImage(img)
             .setViewType(vk::ImageViewType::e2D)
-            .setFormat(_swapchain.format)
-            .setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-        _swapchain.image_views.push_back(_device->createImageViewUnique(ivci));
+            .setFormat(_swapchain.format);
+        info.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor)
+            .setLevelCount(1)
+            .setLayerCount(1);
+        _swapchain.image_views.push_back(_device->createImageViewUnique(info));
     }
 }
 

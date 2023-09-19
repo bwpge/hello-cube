@@ -116,6 +116,29 @@ public:
     }
 
     [[nodiscard]]
+    static const vk::Queue& transfer_queue() {
+        return instance()._transfer_queue;
+    }
+
+    static void flush_command_buffer(
+        vk::UniqueCommandBuffer& cmd,
+        const vk::Queue& queue
+    ) {
+        cmd->end();
+
+        vk::SubmitInfo submit_info{};
+        submit_info.setCommandBuffers(cmd.get());
+        const auto& device = instance()._device.get();
+        const auto fence = device.createFenceUnique({});
+
+        queue.submit(submit_info, fence.get());
+        VKHPP_CHECK(
+            device.waitForFences(fence.get(), VK_TRUE, SYNC_TIMEOUT),
+            "Timed out waiting for command buffer fence"
+        );
+    }
+
+    [[nodiscard]]
     static vk::DescriptorSet allocate_descriptor_set(
         const vk::UniqueDescriptorPool& pool,
         const vk::UniqueDescriptorSetLayout& layout
@@ -139,6 +162,7 @@ private:
         const std::vector<const char*>& extensions
     );
     void create_surface(GLFWwindow* window);
+    void select_queue_families();
     void create_device();
     void create_allocator();
 
@@ -153,6 +177,7 @@ private:
     vk::UniqueSurfaceKHR _surface{};
     QueueFamilyIndex _queue_family{};
     vk::Queue _graphics_queue{};
+    vk::Queue _transfer_queue{};
     Swapchain _swapchain{};
     Allocator _allocator{};
 };
