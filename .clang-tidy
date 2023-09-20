@@ -16,6 +16,7 @@ Checks: >
   cppcoreguidelines-*,
   -bugprone-unchecked-optional-access,
   -bugprone-easily-swappable-parameters,
+  -bugprone-switch-missing-default-case,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-type-union-access,
   -cppcoreguidelines-pro-type-reinterpret-cast,

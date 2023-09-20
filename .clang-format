@@ -1,35 +1,89 @@
+# clang-format based on rustfmt style:
+# https://gist.github.com/YodaEmbedding/c2c77dc693d11f3734d78489f9a6eea4
+
+# basic style setup
 Language: Cpp
 BasedOnStyle: Google
-IndentWidth: 4
+Standard: c++20
+ColumnLimit: 99
+
+# indent style
 AccessModifierOffset: -4
+ContinuationIndentWidth: 4
+IndentPPDirectives: AfterHash
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+NamespaceIndentation: Inner
+TabWidth: 4
+UseTab: Never
+
+# includes/using
+IncludeBlocks: Preserve
+SortIncludes: CaseInsensitive
+SortUsingDeclarations: true
+
+# automatic code changes
+FixNamespaceComments: true
+InsertNewlineAtEOF: true
+InsertBraces: true
+InsertTrailingCommas: Wrapped
+LineEnding: LF
+
+# alignment style
 AlignAfterOpenBracket: BlockIndent
+AlignConsecutiveMacros: false
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
-AlignEscapedNewlinesLeft: true
-AlignOperands: true
-AlignTrailingComments: true
+# AlignEscapedNewlines: DontAlign
+AlignOperands: false
+AlignTrailingComments: false
+
+# braces/bracket logic
+Cpp11BracedListStyle: true
+BreakBeforeBraces: Attach
+
+# line breaking logic
+AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
-AlwaysBreakBeforeMultilineStrings: false
-AlwaysBreakTemplateDeclarations: true
+AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: Yes
+BreakAfterAttributes: Always
+BreakBeforeBinaryOperators: NonAssignment
+CompactNamespaces: false
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: Always
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 1
+SeparateDefinitionBlocks: Always
+
+# control break and whitespace logic
+PenaltyBreakAssignment: 100
+PenaltyReturnTypeOnItsOwnLine: 1000
+PenaltyIndentedWhitespace: 10000
+
+# spacing
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+
+# argument packing
 BinPackArguments: false
 BinPackParameters: false
-BreakAfterAttributes: Always
+PackConstructorInitializers: NextLine
+
+# pointer/ref/cv style
 DerivePointerAlignment: false
-InsertNewlineAtEOF: true
-InsertBraces: true
-InsertTrailingCommas: Wrapped
-PackConstructorInitializers: CurrentLine
-PenaltyReturnTypeOnItsOwnLine: 1000
-PenaltyIndentedWhitespace: 1
+QualifierAlignment: Left
 PointerAlignment: Left
 ReferenceAlignment: Pointer
-SeparateDefinitionBlocks: Always
-SortIncludes: Never
