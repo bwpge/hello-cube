@@ -2,9 +2,8 @@
 
 #include <functional>
 
-#include "hvk/core.hpp"
 #include "hvk/allocator.hpp"
-#include "hvk/vk_context.hpp"
+#include "hvk/core.hpp"
 
 namespace hvk {
 
@@ -21,7 +20,7 @@ public:
 
     void oneshot(
         const vk::Queue& queue,
-        std::function<void(const vk::UniqueCommandBuffer&)>&& op
+        const std::function<void(const vk::UniqueCommandBuffer&)>& op
     );
 
     void copy_staged(

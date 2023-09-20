@@ -1,8 +1,7 @@
 #pragma once
 
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
 
-#include "hvk/core.hpp"
 #include "hvk/allocator.hpp"
 #include "hvk/model.hpp"
 
@@ -15,7 +14,7 @@ struct SceneData {
 
 class Scene {
 public:
-    template <typename T>
+    template<typename T>
     void add_model(T&& model) {
         _models.push_back(std::forward<T>(model));
     }

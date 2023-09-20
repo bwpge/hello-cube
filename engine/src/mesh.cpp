@@ -8,12 +8,8 @@ Mesh::~Mesh() {
 }
 
 void Mesh::upload(const vk::Queue& queue, UploadContext& ctx) {
-    if (_vertices.empty()) {
-        spdlog::error(
-            "Uploading mesh vertex buffer without vertex data is not valid"
-        );
-        return;
-    }
+    HVK_ASSERT(!_vertices.empty(), "Cannot upload mesh without vertex data");
+
     create_and_upload_buffer(
         queue,
         ctx,
@@ -37,17 +33,12 @@ void Mesh::bind(const vk::UniqueCommandBuffer& cmd) const {
 }
 
 void Mesh::bind(const vk::CommandBuffer& cmd) const {
-    HVK_ASSERT(
-        _vertex_buffer.buffer, "Cannot bind mesh vertex buffer with null handle"
-    );
+    HVK_ASSERT(_vertex_buffer.buffer, "Cannot bind mesh vertex buffer with null handle");
     vk::Buffer vb{_vertex_buffer.buffer};
     cmd.bindVertexBuffers(0, vb, {0});
 
     if (!_indices.empty()) {
-        HVK_ASSERT(
-            _index_buffer.buffer,
-            "Cannot bind mesh index buffer with null handle"
-        );
+        HVK_ASSERT(_index_buffer.buffer, "Cannot bind mesh index buffer with null handle");
         vk::Buffer ib{_index_buffer.buffer};
         cmd.bindIndexBuffer(ib, 0, vk::IndexType::eUint32);
     }

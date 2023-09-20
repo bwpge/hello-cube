@@ -1,4 +1,5 @@
 #include "hvk/depth_buffer.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
@@ -41,9 +42,7 @@ DepthBuffer::DepthBuffer(vk::Extent2D extent) {
     std::swap(_image, image);
 
     vk::ImageViewCreateInfo ivci{};
-    ivci.setViewType(vk::ImageViewType::e2D)
-        .setImage(vk::Image{_image.image})
-        .setFormat(_format);
+    ivci.setViewType(vk::ImageViewType::e2D).setImage(vk::Image{_image.image}).setFormat(_format);
     ivci.subresourceRange.setBaseMipLevel(0)
         .setLevelCount(1)
         .setBaseArrayLayer(0)

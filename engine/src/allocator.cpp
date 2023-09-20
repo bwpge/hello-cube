@@ -92,14 +92,7 @@ AllocatedImage Allocator::create_image(
 
     AllocatedImage img{};
     VK_CHECK(
-        vmaCreateImage(
-            _allocator,
-            &vk_info,
-            &i_alloc_info,
-            &img.image,
-            &img.allocation,
-            nullptr
-        ),
+        vmaCreateImage(_allocator, &vk_info, &i_alloc_info, &img.image, &img.allocation, nullptr),
         "Failed to allocate depth buffer image"
     );
 

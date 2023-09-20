@@ -1,4 +1,5 @@
 #include "hvk/debug_utils.hpp"
+#include "hvk/core.hpp"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
     VkInstance instance,
@@ -18,7 +19,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
 VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
     VkInstance instance,
     VkDebugUtilsMessengerEXT pMessenger,
-    VkAllocationCallbacks const* pAllocator
+    const VkAllocationCallbacks* pAllocator
 ) {
     auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
         vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT")
@@ -33,7 +34,7 @@ namespace hvk {
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     VkDebugUtilsMessageTypeFlagsEXT type,
-    VkDebugUtilsMessengerCallbackDataEXT const* cb_data,
+    const VkDebugUtilsMessengerCallbackDataEXT* cb_data,
     [[maybe_unused]] void* user_data
 ) {
     std::ostringstream message;

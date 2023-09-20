@@ -1,12 +1,10 @@
 #include "hvk/vk_context.hpp"
+#include "hvk/debug_utils.hpp"
 
 namespace hvk {
 
-vk::Extent2D get_surface_extent(
-    vk::PhysicalDevice& gpu,
-    vk::SurfaceKHR& surface,
-    GLFWwindow* window
-) {
+vk::Extent2D
+get_surface_extent(vk::PhysicalDevice& gpu, vk::SurfaceKHR& surface, GLFWwindow* window) {
     const auto capabilities = gpu.getSurfaceCapabilitiesKHR(surface);
 
     vk::Extent2D extent{};
@@ -16,14 +14,10 @@ vk::Extent2D get_surface_extent(
         i32 width{};
         i32 height{};
         glfwGetFramebufferSize(window, &width, &height);
-        extent =
-            vk::Extent2D{static_cast<u32>(width), static_cast<u32>(height)};
+        extent = vk::Extent2D{static_cast<u32>(width), static_cast<u32>(height)};
     }
-    extent.width = std::clamp(
-        extent.width,
-        capabilities.minImageExtent.width,
-        capabilities.maxImageExtent.width
-    );
+    extent.width = std::
+        clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
     extent.height = std::clamp(
         extent.height,
         capabilities.minImageExtent.height,
@@ -33,22 +27,20 @@ vk::Extent2D get_surface_extent(
     return extent;
 }
 
-void VulkanContext::create_instance(
-    vk::ApplicationInfo app_info,
-    const std::vector<const char*>& extensions
-) {
+void VulkanContext::
+    create_instance(vk::ApplicationInfo app_info, const std::vector<const char*>& extensions) {
     spdlog::trace("Creating Vulkan instance");
 
     auto dmci = vk::DebugUtilsMessengerCreateInfoEXT{
         {},
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
+        vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
+            | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo
+            | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
+            | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
+            | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance
+            | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
+            | vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
         debug_callback,
     };
 
@@ -57,9 +49,7 @@ void VulkanContext::create_instance(
         "VK_LAYER_KHRONOS_synchronization2",
     };
 
-    spdlog::debug(
-        "Requested instance extensions: [{}]", fmt::join(extensions, ", ")
-    );
+    spdlog::debug("Requested instance extensions: [{}]", fmt::join(extensions, ", "));
     spdlog::debug("Requested instance layers: [{}]", fmt::join(layers, ", "));
 
     vk::InstanceCreateInfo create_info{};
@@ -76,18 +66,16 @@ void VulkanContext::create_surface(GLFWwindow* window) {
     spdlog::trace("Initializing window surface");
 
     VkSurfaceKHR surface{};
-    if (glfwCreateWindowSurface(_instance.get(), window, nullptr, &surface) !=
-        VK_SUCCESS) {
-        PANIC("Failed to create window surface");
+    if (glfwCreateWindowSurface(_instance.get(), window, nullptr, &surface) != VK_SUCCESS) {
+        panic("Failed to create window surface");
     }
     if (!surface) {
-        PANIC("Failed to create window surface");
+        panic("Failed to create window surface");
     } else {
         // https://github.com/KhronosGroup/Vulkan-Hpp/blob/e2f5348e28ba22dd9b87028f2d9bb7d556aa7b6e/samples/utils/utils.cpp#L790-L798
-        auto deleter =
-            vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(
-                _instance.get()
-            );
+        auto deleter = vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(
+            _instance.get()
+        );
         _surface = vk::UniqueSurfaceKHR{surface, deleter};
     }
 }
@@ -100,12 +88,9 @@ void VulkanContext::select_queue_families() {
 
     for (u32 i = 0; i < static_cast<u32>(queue_family_props.size()); i++) {
         const auto props = queue_family_props[i];
-        const auto has_graphics =
-            props.queueFlags & vk::QueueFlagBits::eGraphics;
-        const auto has_present =
-            _gpu.getSurfaceSupportKHR(i, _surface.get()) == VK_TRUE;
-        const auto has_transfer =
-            (props.queueFlags & vk::QueueFlagBits::eTransfer);
+        const auto has_graphics = props.queueFlags & vk::QueueFlagBits::eGraphics;
+        const auto has_present = _gpu.getSurfaceSupportKHR(i, _surface.get()) == VK_TRUE;
+        const auto has_transfer = (props.queueFlags & vk::QueueFlagBits::eTransfer);
 
         if (has_graphics) {
             idx_graphics.push_back(i);
@@ -128,7 +113,7 @@ void VulkanContext::select_queue_families() {
     );
 
     if (idx_graphics.empty() || idx_present.empty() || idx_transfer.empty()) {
-        PANIC("Failed to locate required queue indices");
+        panic("Failed to locate required queue indices");
     }
 
     _queue_family = {
@@ -140,8 +125,8 @@ void VulkanContext::select_queue_families() {
     // need graphics capabilities to transition images to shader stages
     // (without a ton of boilerplate code for different transitions)
     for (const auto i : idx_transfer) {
-        if (i != _queue_family.graphics && i != _queue_family.present &&
-            queue_family_props[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+        if (i != _queue_family.graphics && i != _queue_family.present
+            && queue_family_props[i].queueFlags & vk::QueueFlagBits::eGraphics) {
             _queue_family.transfer = i;
         }
     }
@@ -160,26 +145,20 @@ void VulkanContext::create_device() {
     spdlog::trace("Selecting physical device");
 
     const auto devices = _instance->enumeratePhysicalDevices();
-    spdlog::debug(
-        "Found {} {}",
-        devices.size(),
-        devices.size() == 1 ? "device" : "devices"
-    );
+    spdlog::debug("Found {} {}", devices.size(), devices.size() == 1 ? "device" : "devices");
 
     std::optional<i32> selected{};
     for (i32 i = 0; i < static_cast<i32>(devices.size()); i++) {
         auto p = devices[i].getProperties();
         if (p.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
             selected = i;
-            spdlog::debug(
-                "Selected device '{}'", static_cast<const char*>(p.deviceName)
-            );
+            spdlog::debug("Selected device '{}'", static_cast<const char*>(p.deviceName));
             selected = i;
             break;
         }
     }
     if (!selected.has_value()) {
-        PANIC("Failed to locate a suitable device");
+        panic("Failed to locate a suitable device");
     }
 
     _gpu = devices[selected.value()];
@@ -233,17 +212,11 @@ void VulkanContext::create_device() {
     _device = _gpu.createDeviceUnique(create_info_chain.get());
 
     u32 queue_num{};
-    spdlog::debug(
-        "Storing graphics queue handle: family={} (#{})",
-        _queue_family.graphics,
-        queue_num
-    );
+    spdlog::
+        debug("Storing graphics queue handle: family={} (#{})", _queue_family.graphics, queue_num);
     _graphics_queue = _device->getQueue(_queue_family.graphics, queue_num++);
-    spdlog::debug(
-        "Storing transfer queue handle: family={} (#{})",
-        _queue_family.graphics,
-        queue_num
-    );
+    spdlog::
+        debug("Storing transfer queue handle: family={} (#{})", _queue_family.graphics, queue_num);
     _transfer_queue = _device->getQueue(_queue_family.transfer, queue_num);
 }
 
@@ -262,8 +235,7 @@ void VulkanContext::build_swapchain(GLFWwindow* window) {
     auto mode = vk::PresentModeKHR::eMailbox;
 
     u32 img_count = capabilities.minImageCount + 1;
-    if (capabilities.maxImageCount > 0 &&
-        img_count > capabilities.maxImageCount) {
+    if (capabilities.maxImageCount > 0 && img_count > capabilities.maxImageCount) {
         img_count = capabilities.maxImageCount;
     }
 
@@ -278,8 +250,7 @@ void VulkanContext::build_swapchain(GLFWwindow* window) {
         vk::ImageUsageFlagBits::eColorAttachment,
     };
     if (_queue_family.graphics != _queue_family.present) {
-        auto indices =
-            std::vector{_queue_family.graphics, _queue_family.present};
+        auto indices = std::vector{_queue_family.graphics, _queue_family.present};
         create_info.setImageSharingMode(vk::SharingMode::eConcurrent)
             .setQueueFamilyIndices(indices);
     } else {
@@ -296,9 +267,7 @@ void VulkanContext::build_swapchain(GLFWwindow* window) {
     _swapchain.image_views.clear();
     for (auto img : _swapchain.images) {
         vk::ImageViewCreateInfo info{};
-        info.setImage(img)
-            .setViewType(vk::ImageViewType::e2D)
-            .setFormat(_swapchain.format);
+        info.setImage(img).setViewType(vk::ImageViewType::e2D).setFormat(_swapchain.format);
         info.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor)
             .setLevelCount(1)
             .setLayerCount(1);

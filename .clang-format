@@ -10,10 +10,11 @@ ColumnLimit: 99
 # indent style
 AccessModifierOffset: -4
 ContinuationIndentWidth: 4
-IndentPPDirectives: AfterHash
+IndentPPDirectives: BeforeHash
 IndentWidth: 4
 IndentWrappedFunctionNames: false
 NamespaceIndentation: Inner
+PPIndentWidth: 2
 TabWidth: 4
 UseTab: Never
 
@@ -67,8 +68,8 @@ SeparateDefinitionBlocks: Always
 
 # control break and whitespace logic
 PenaltyBreakAssignment: 100
-PenaltyReturnTypeOnItsOwnLine: 1000
-PenaltyIndentedWhitespace: 10000
+PenaltyReturnTypeOnItsOwnLine: 10000
+PenaltyIndentedWhitespace: 1000
 
 # spacing
 SpaceAfterCStyleCast: false

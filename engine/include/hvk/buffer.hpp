@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hvk/core.hpp"
 #include "hvk/allocator.hpp"
+#include "hvk/core.hpp"
 #include "hvk/vk_context.hpp"
 
 namespace hvk {
@@ -33,17 +33,17 @@ public:
     [[nodiscard]]
     bool is_mapped() const;
 
-    template <typename T>
+    template<typename T>
     void update(T* src) {
         auto* new_data = static_cast<void*>(src);
         auto size = sizeof(T);
         update_impl(_data, new_data, size);
     }
 
-    template <>
+    template<>
     void update(void*) = delete;
 
-    template <typename T>
+    template<typename T>
     void update_indexed(T* src, usize index) {
         auto size = sizeof(T);
         auto offset = index * Buffer::pad_alignment(size);
@@ -58,7 +58,7 @@ public:
         update_impl(data, new_data, size);
     }
 
-    template <>
+    template<>
     void update_indexed(void*, usize) = delete;
 
     [[nodiscard]]

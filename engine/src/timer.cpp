@@ -23,8 +23,7 @@ double Timer::elapsed_secs() {
 
 double Timer::elapsed_ms() {
     // https://en.cppreference.com/w/cpp/chrono/duration/duration_cast
-    auto millis =
-        std::chrono::duration<double, std::milli>(Clock::now() - _last);
+    auto millis = std::chrono::duration<double, std::milli>(Clock::now() - _last);
     return millis.count();
 }
 
@@ -33,8 +32,7 @@ double Timer::total_secs() {
 }
 
 double Timer::total_ms() {
-    auto millis =
-        std::chrono::duration<double, std::milli>(Clock::now() - _start);
+    auto millis = std::chrono::duration<double, std::milli>(Clock::now() - _start);
     return millis.count();
 }
 

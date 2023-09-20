@@ -7,8 +7,8 @@ layout (location = 2) in vec3 inColor;
 layout (location = 0) out vec4 outColor;
 
 layout (set = 0, binding = 1) uniform SceneData {
-	vec4 lightColor;
-	vec4 lightDir;
+    vec4 lightColor;
+    vec4 lightDir;
 } scene;
 
 const float LIGHT_MIN = 0.05;

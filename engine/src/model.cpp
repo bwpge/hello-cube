@@ -55,8 +55,7 @@ void Model::draw(const vk::CommandBuffer& cmd) const {
     }
 }
 
-void Model::draw_node(const Node& node, const vk::UniqueCommandBuffer& cmd)
-    const {
+void Model::draw_node(const Node& node, const vk::UniqueCommandBuffer& cmd) const {
     const auto& mesh = _meshes.at(node.mesh_idx);
     mesh.bind(cmd);
     mesh.draw(cmd);

@@ -15,9 +15,8 @@ Buffer::~Buffer() {
 }
 
 bool Buffer::is_mapped() const {
-    return static_cast<bool>(
-        _mem_props & vk::MemoryPropertyFlagBits::eHostVisible
-    );
+    return static_cast<bool>(_data)
+        && static_cast<bool>(_mem_props & vk::MemoryPropertyFlagBits::eHostVisible);
 }
 
 vk::Buffer Buffer::buffer() const {
@@ -75,9 +74,9 @@ void Buffer::allocate_impl(usize size) {
     auto buffer = allocator.create_buffer(
         size,
         vk::BufferUsageFlagBits::eUniformBuffer,
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-            VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+            | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
+            | VMA_ALLOCATION_CREATE_MAPPED_BIT,
         VMA_MEMORY_USAGE_AUTO,
         &allocation_info
     );
@@ -85,19 +84,13 @@ void Buffer::allocate_impl(usize size) {
     _buf = buffer;
 
     _data = allocation_info.pMappedData;
-    HVK_ASSERT(
-        _data, "Persistent memory mapping failed (mapping was a null pointer)"
-    );
+    HVK_ASSERT(_data, "Persistent memory mapping failed (mapping was a null pointer)");
     _mem_props = allocator.get_memory_property_flags(_buf);
 }
 
 void Buffer::update_impl(void* dst, void* src, usize size) const {
-    if (is_mapped()) {
-        memcpy(dst, src, size);
-    } else {
-        // TODO(bwpge): implement transfer
-        PANIC("TODO: Implement transfer for non-mappable memory");
-    }
+    HVK_ASSERT(is_mapped(), "TODO: implement transfer for non-mappable memory");
+    memcpy(dst, src, size);
 }
 
 }  // namespace hvk

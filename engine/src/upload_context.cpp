@@ -1,4 +1,5 @@
 #include "hvk/upload_context.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
@@ -17,20 +18,18 @@ UploadContext::UploadContext(u32 queue) {
         .setCommandBufferCount(1)
         .setLevel(vk::CommandBufferLevel::ePrimary);
     auto buffers = device.allocateCommandBuffersUnique(alloc_info);
-    HVK_ASSERT(
-        buffers.size() == 1, "Should have allocated exactly one command buffer"
-    );
+
+    HVK_ASSERT(buffers.size() == 1, "Should have allocated exactly one command buffer");
     _cmd = std::move(buffers[0]);
 }
 
 void UploadContext::oneshot(
     const vk::Queue& queue,
-    std::function<void(const vk::UniqueCommandBuffer&)>&& op
+    const std::function<void(const vk::UniqueCommandBuffer&)>& op
 ) {
     const auto& device = VulkanContext::device();
 
-    _cmd->begin(vk::CommandBufferBeginInfo{
-        vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    _cmd->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     op(_cmd);
     _cmd->end();
 

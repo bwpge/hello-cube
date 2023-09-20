@@ -3,9 +3,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include "hvk/core.hpp"
-#include "hvk/mesh.hpp"
 #include "hvk/shader.hpp"
-#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
@@ -28,8 +26,7 @@ struct PipelineConfig {
     std::vector<vk::Viewport> viewports{};
     std::vector<vk::Rect2D> scissors{};
     vk::PipelineMultisampleStateCreateInfo multisample_state{};
-    std::vector<vk::PipelineColorBlendAttachmentState>
-        color_blend_attachments{};
+    std::vector<vk::PipelineColorBlendAttachmentState> color_blend_attachments{};
     vk::PipelineRasterizationStateCreateInfo rasterizer_info{};
     vk::PipelineDepthStencilStateCreateInfo depth_stencil{};
 };
@@ -39,42 +36,29 @@ public:
     PipelineBuilder& new_pipeline();
 
     PipelineBuilder& add_push_constant(const vk::PushConstantRange& range);
-    PipelineBuilder& add_descriptor_set_layout(
-        const vk::UniqueDescriptorSetLayout& layout
-    );
+    PipelineBuilder& add_descriptor_set_layout(const vk::UniqueDescriptorSetLayout& layout);
     PipelineBuilder& add_vertex_shader(vk::UniqueShaderModule shader);
     PipelineBuilder& add_vertex_shader(const Shader& shader);
     PipelineBuilder& add_fragment_shader(vk::UniqueShaderModule shader);
     PipelineBuilder& add_fragment_shader(const Shader& shader);
-    PipelineBuilder& add_vertex_binding_description(
-        const vk::VertexInputBindingDescription& desc
-    );
+    PipelineBuilder& add_vertex_binding_description(const vk::VertexInputBindingDescription& desc);
     PipelineBuilder& add_vertex_binding_description(
         const std::vector<vk::VertexInputBindingDescription>& desc
     );
-    PipelineBuilder& add_vertex_attr_description(
-        const vk::VertexInputAttributeDescription& desc
-    );
+    PipelineBuilder& add_vertex_attr_description(const vk::VertexInputAttributeDescription& desc);
     PipelineBuilder& add_vertex_attr_description(
         const std::vector<vk::VertexInputAttributeDescription>& desc
     );
-    PipelineBuilder& with_input_assembly_state(
-        const vk::PipelineInputAssemblyStateCreateInfo& info
+    PipelineBuilder& with_input_assembly_state(const vk::PipelineInputAssemblyStateCreateInfo& info
     );
     PipelineBuilder& with_default_viewport(const vk::Extent2D& extent);
-    PipelineBuilder& with_multisample_state(
-        const vk::PipelineMultisampleStateCreateInfo& info
-    );
+    PipelineBuilder& with_multisample_state(const vk::PipelineMultisampleStateCreateInfo& info);
     PipelineBuilder& with_default_color_blend_opaque();
     PipelineBuilder& with_default_color_blend_transparency();
     PipelineBuilder& with_front_face(vk::FrontFace front);
     PipelineBuilder& with_cull_mode(vk::CullModeFlagBits mode);
     PipelineBuilder& with_polygon_mode(vk::PolygonMode mode);
-    PipelineBuilder& with_depth_stencil(
-        bool test,
-        bool write,
-        vk::CompareOp op
-    );
+    PipelineBuilder& with_depth_stencil(bool test, bool write, vk::CompareOp op);
 
     [[nodiscard]]
     GraphicsPipeline build(const vk::RenderPass& render_pass);

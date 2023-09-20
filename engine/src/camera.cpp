@@ -1,4 +1,5 @@
 #include "hvk/camera.hpp"
+#include "hvk/core.hpp"
 
 namespace hvk {
 
@@ -94,8 +95,7 @@ void Camera::rotate(double dx, double dy) {
     _pitch += static_cast<float>(dy) * _rotation_speed;
     _pitch = std::clamp(_pitch, -85.f, 85.f);
 
-    auto rotation =
-        glm::quat{glm::vec3{glm::radians(_pitch), glm::radians(_yaw), 0.f}};
+    auto rotation = glm::quat{glm::vec3{glm::radians(_pitch), glm::radians(_yaw), 0.f}};
     _front = glm::normalize(rotation * glm::vec3{0.f, 0.f, 1.f});
     spdlog::debug(
         "[camera] Rotate: yaw={}, pitch={}, front=[{}, {}, {}]",

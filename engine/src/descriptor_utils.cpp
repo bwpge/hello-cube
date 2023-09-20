@@ -1,23 +1,20 @@
 #include "hvk/descriptor_utils.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
-DescriptorSetBindingMap::DescriptorSetBindingMap(
-    std::initializer_list<DescriptorDetails> items
-) {
+DescriptorSetBindingMap::DescriptorSetBindingMap(std::initializer_list<DescriptorDetails> items) {
     u32 idx{};
     for (const auto& item : items) {
         _details.insert_or_assign(idx++, item);
     }
 }
 
-DescriptorSetBindingMap::Map::const_iterator DescriptorSetBindingMap::begin(
-) const noexcept {
+DescriptorSetBindingMap::Map::const_iterator DescriptorSetBindingMap::begin() const noexcept {
     return _details.begin();
 }
 
-DescriptorSetBindingMap::Map::const_iterator DescriptorSetBindingMap::end(
-) const noexcept {
+DescriptorSetBindingMap::Map::const_iterator DescriptorSetBindingMap::end() const noexcept {
     return _details.end();
 }
 
@@ -33,9 +30,7 @@ vk::UniqueDescriptorSetLayout DescriptorSetBindingMap::build_layout() {
     return DescriptorSetLayoutBuilder{*this}.build();
 }
 
-DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(
-    const DescriptorSetBindingMap& map
-) {
+DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(const DescriptorSetBindingMap& map) {
     for (const auto& [binding, item] : map) {
         this->add_binding(binding, item.type, item.stage_flags, item.count);
     }

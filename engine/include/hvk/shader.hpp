@@ -1,13 +1,11 @@
 #pragma once
 
-#include <fstream>
 #include <filesystem>
-#include <unordered_map>
+#include <fstream>
 
 #include <vulkan/vulkan.hpp>
 
 #include "hvk/core.hpp"
-#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
@@ -19,13 +17,12 @@ public:
         Shader result{};
 
         if (!file.is_open()) {
-            PANIC(fmt::format("failed to open shader file '{}'", path.string())
-            );
+            panic(fmt::format("failed to open shader file '{}'", path.string()));
         }
 
         auto size = file.tellg();
         if (size <= 0) {
-            PANIC("shader does not contain any data");
+            panic("shader does not contain any data");
         }
 
         result._buf.resize(size);
@@ -51,14 +48,14 @@ enum class ShaderType {
 
 }  // namespace hvk
 
-template <>
+template<>
 struct fmt::formatter<hvk::ShaderType> {
-    template <typename ParseContext>
+    template<typename ParseContext>
     constexpr auto parse(ParseContext& ctx) {
         return ctx.begin();
     }
 
-    template <typename FormatContext>
+    template<typename FormatContext>
     auto format(hvk::ShaderType type, FormatContext& ctx) {
         std::string result{};
         switch (type) {

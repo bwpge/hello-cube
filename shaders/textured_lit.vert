@@ -11,28 +11,26 @@ layout (location = 2) out vec3 fragColor;
 layout (location = 3) out vec2 fragTexCoord;
 
 layout (set = 0, binding = 0) uniform CameraData {
-	mat4 projection;
-	mat4 view;
-	mat4 viewProj;
-	vec3 pos;
+    mat4 projection;
+    mat4 view;
+    mat4 viewProj;
+    vec3 pos;
 } camera;
 
 layout (set = 0, binding = 1) uniform SceneData {
-	vec4 lightColor;
-	vec4 lightDir;
+    vec4 lightColor;
+    vec4 lightDir;
 } scene;
 
-layout (push_constant) uniform constants
-{
-	mat4 model;
-	mat4 normalTransform;
+layout (push_constant) uniform constants {
+    mat4 model;
+    mat4 normalTransform;
 } pc;
 
-void main()
-{
-	gl_Position = camera.viewProj * pc.model * vec4(inPosition, 1.0);
-	fragPos = vec3(pc.model * vec4(inPosition, 1.0));
-	fragNormal = normalize(mat3(pc.normalTransform) * inNormal);
-	fragColor = inColor;
+void main() {
+    gl_Position = camera.viewProj * pc.model * vec4(inPosition, 1.0);
+    fragPos = vec3(pc.model * vec4(inPosition, 1.0));
+    fragNormal = normalize(mat3(pc.normalTransform) * inNormal);
+    fragColor = inColor;
     fragTexCoord = inTexCoord;
 }

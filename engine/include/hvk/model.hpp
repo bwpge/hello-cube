@@ -1,14 +1,13 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include "hvk/core.hpp"
 #include "hvk/material.hpp"
 #include "hvk/mesh.hpp"
 #include "hvk/resource_manager.hpp"
-#include "hvk/texture.hpp"
 
 namespace hvk {
 
@@ -41,12 +40,7 @@ public:
         return model;
     }
 
-    static Model sphere(
-        Material* material,
-        float radius,
-        u32 sectors,
-        u32 stacks
-    ) {
+    static Model sphere(Material* material, float radius, u32 sectors, u32 stacks) {
         Model model{};
         model._meshes.push_back(Mesh::sphere(radius, sectors, stacks));
         model._materials.push_back(material);
@@ -54,12 +48,7 @@ public:
         return model;
     }
 
-    static Model cylinder(
-        Material* material,
-        float radius,
-        float height,
-        u32 sectors
-    ) {
+    static Model cylinder(Material* material, float radius, float height, u32 sectors) {
         Model model{};
         model._meshes.push_back(Mesh::cylinder(radius, height, sectors));
         model._materials.push_back(material);
@@ -67,26 +56,16 @@ public:
         return model;
     }
 
-    static Model torus(
-        Material* material,
-        float radius_ring,
-        float radius_inner,
-        u32 sectors,
-        u32 segments
-    ) {
+    static Model
+    torus(Material* material, float radius_ring, float radius_inner, u32 sectors, u32 segments) {
         Model model{};
-        model._meshes.push_back(
-            Mesh::torus(radius_ring, radius_inner, sectors, segments)
-        );
+        model._meshes.push_back(Mesh::torus(radius_ring, radius_inner, sectors, segments));
         model._materials.push_back(material);
         model._nodes.push_back({material, 0});
         return model;
     }
 
-    static Model load_obj(
-        const std::filesystem::path& path,
-        UploadContext& ctx
-    ) {
+    static Model load_obj(const std::filesystem::path& path, UploadContext& ctx) {
         spdlog::trace("Loading mesh: {}", path.string());
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
@@ -109,7 +88,7 @@ public:
             spdlog::warn("[tiny_obj_loader] {}", warn);
         }
         if (!err.empty()) {
-            PANIC(fmt::format("[tiny_obj_loader] {}", err));
+            panic(fmt::format("[tiny_obj_loader] {}", err));
         }
 
         Model model{};
@@ -130,9 +109,7 @@ public:
                     if (mat_id != last_mat_id) {
                         if (!mesh._vertices.empty()) {
                             model._nodes.push_back(Node{
-                                model._materials.at(
-                                    static_cast<usize>(last_mat_id)
-                                ),
+                                model._materials.at(static_cast<usize>(last_mat_id)),
                                 model._meshes.size(),
                             });
                             model._meshes.push_back(std::move(mesh));
@@ -182,7 +159,7 @@ public:
         return model;
     }
 
-    template <typename T>
+    template<typename T>
     void add_mesh(T&& mesh) {
         _meshes.push_back(std::forward<T>(mesh));
     }
@@ -212,12 +189,11 @@ private:
     ) {
         std::vector<Material*> result{};
         for (const auto& mat : materials) {
-            glm::vec3 ambient_base =
-                glm::vec3{mat.ambient[0], mat.ambient[1], mat.ambient[2]};
+            glm::vec3 ambient_base = glm::vec3{mat.ambient[0], mat.ambient[1], mat.ambient[2]};
             auto ambient_tex = std::filesystem::path{mat.ambient_texname};
-            result.push_back(ResourceManager::make_material(
-                mat.name, base_dir, ambient_base, ambient_tex, ctx
-            ));
+            result.push_back(
+                ResourceManager::make_material(mat.name, base_dir, ambient_base, ambient_tex, ctx)
+            );
         }
 
         return result;

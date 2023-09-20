@@ -1,4 +1,5 @@
 #include "logger.hpp"
+
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hvk {
@@ -8,9 +9,7 @@ void configure_logger() {
 #ifdef _WIN32
     sink->set_color(spdlog::level::trace, FOREGROUND_INTENSITY);
     sink->set_color(spdlog::level::debug, FOREGROUND_GREEN | FOREGROUND_BLUE);
-    sink->set_color(
-        spdlog::level::info, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE
-    );
+    sink->set_color(spdlog::level::info, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     sink->set_color(spdlog::level::warn, FOREGROUND_RED | FOREGROUND_GREEN);
     sink->set_color(spdlog::level::err, FOREGROUND_RED);
     sink->set_color(

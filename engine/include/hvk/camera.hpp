@@ -1,10 +1,8 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
-
-#include "hvk/core.hpp"
+#include <glm/gtx/transform.hpp>
 
 namespace hvk {
 
@@ -32,10 +30,7 @@ enum class ZoomDirection {
 class Camera {
 public:
     Camera(float fov, float aspect, float near_z, float far_z)
-        : _fov{fov},
-          _aspect{aspect},
-          _near_z{near_z},
-          _far_z{far_z} {}
+        : _fov{fov}, _aspect{aspect}, _near_z{near_z}, _far_z{far_z} {}
 
     Camera() = default;
     Camera(const Camera&) = default;

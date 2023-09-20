@@ -1,11 +1,10 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
 #include <glfw/glfw3.h>
+#include <vulkan/vulkan.hpp>
 
 #include "hvk/allocator.hpp"
 #include "hvk/core.hpp"
-#include "hvk/debug_utils.hpp"
 
 namespace hvk {
 
@@ -44,7 +43,7 @@ public:
         spdlog::trace("Initializing Vulkan context");
         auto& ctx = instance();
         if (ctx._is_init) {
-            PANIC("Cannot re-initialize Vulkan context");
+            panic("Cannot re-initialize Vulkan context");
         }
 
         // store api version for use by allocator
@@ -101,8 +100,7 @@ public:
             return 0.0f;
         }
 
-        return static_cast<float>(extent.width) /
-               static_cast<float>(extent.height);
+        return static_cast<float>(extent.width) / static_cast<float>(extent.height);
     }
 
     [[nodiscard]]
@@ -120,10 +118,7 @@ public:
         return instance()._transfer_queue;
     }
 
-    static void flush_command_buffer(
-        vk::UniqueCommandBuffer& cmd,
-        const vk::Queue& queue
-    ) {
+    static void flush_command_buffer(vk::UniqueCommandBuffer& cmd, const vk::Queue& queue) {
         cmd->end();
 
         vk::SubmitInfo submit_info{};
@@ -147,9 +142,7 @@ public:
         alloc_info.setDescriptorPool(pool.get()).setSetLayouts(layout.get());
 
         auto sets = instance()._device->allocateDescriptorSets(alloc_info);
-        HVK_ASSERT(
-            sets.size() == 1, "Allocation should create one descriptor set"
-        );
+        HVK_ASSERT(sets.size() == 1, "Allocation should create one descriptor set");
 
         return sets[0];
     }
@@ -157,10 +150,7 @@ public:
     void build_swapchain(GLFWwindow* window);
 
 private:
-    void create_instance(
-        vk::ApplicationInfo app_info,
-        const std::vector<const char*>& extensions
-    );
+    void create_instance(vk::ApplicationInfo app_info, const std::vector<const char*>& extensions);
     void create_surface(GLFWwindow* window);
     void select_queue_families();
     void create_device();

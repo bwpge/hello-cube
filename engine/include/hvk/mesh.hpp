@@ -1,14 +1,12 @@
 #pragma once
 
-#include <filesystem>
-
-#include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
-#include <glm/gtx/quaternion.hpp>
 #include <tiny_obj_loader.h>
+#include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/transform.hpp>
 
-#include "hvk/core.hpp"
 #include "hvk/allocator.hpp"
+#include "hvk/core.hpp"
 #include "hvk/upload_context.hpp"
 
 namespace hvk {
@@ -151,12 +149,8 @@ public:
     }
 
     // implementation adapted from http://www.songho.ca/opengl/gl_sphere.html
-    static Mesh sphere(
-        float radius,
-        u32 sectors,
-        u32 stacks,
-        glm::vec3 color = {1.0f, 1.0f, 1.0f}
-    ) {
+    static Mesh
+    sphere(float radius, u32 sectors, u32 stacks, glm::vec3 color = {1.0f, 1.0f, 1.0f}) {
         Mesh mesh{};
 
         float d_sector = glm::two_pi<float>() / static_cast<float>(sectors);
@@ -205,12 +199,8 @@ public:
     }
 
     // implementation adapted from http://www.songho.ca/opengl/gl_cylinder.html
-    static Mesh cylinder(
-        float radius,
-        float height,
-        u32 sectors,
-        glm::vec3 color = {1.0f, 1.0f, 1.0f}
-    ) {
+    static Mesh
+    cylinder(float radius, float height, u32 sectors, glm::vec3 color = {1.0f, 1.0f, 1.0f}) {
         Mesh mesh{};
 
         float h = height / 2.0f;
@@ -226,8 +216,8 @@ public:
         }
 
         // generate top circle vertices
-        mesh._vertices.push_back(Vertex{
-            {0.0f, h, 0.0f}, {0.0f, 1.0f, 0.0f}, color, {0.25f, 0.75f}});
+        mesh._vertices.push_back(Vertex{{0.0f, h, 0.0f}, {0.0f, 1.0f, 0.0f}, color, {0.25f, 0.75f}}
+        );
         for (u32 i = 0; i <= sectors; i++) {
             float x = d_cos[i];
             float z = d_sin[i];
@@ -235,9 +225,7 @@ public:
             float u = (x / radius + 1.0f) * 0.25f;
             float v = 0.5f + (z / radius + 1.0f) * 0.25f;
 
-            mesh._vertices.push_back(
-                {{x, h, z}, {0.0f, 1.0f, 0.0f}, color, {u, v}}
-            );
+            mesh._vertices.push_back({{x, h, z}, {0.0f, 1.0f, 0.0f}, color, {u, v}});
         }
 
         // generate top circle indices
@@ -253,8 +241,9 @@ public:
 
         // generate bottom circle vertices
         u32 bottom_offset = static_cast<u32>(mesh._vertices.size());
-        mesh._vertices.push_back(Vertex{
-            {0.0f, -h, 0.0f}, {0.0f, -1.0f, 0.0f}, color, {0.25f, 0.75f}});
+        mesh._vertices.push_back(
+            Vertex{{0.0f, -h, 0.0f}, {0.0f, -1.0f, 0.0f}, color, {0.25f, 0.75f}}
+        );
         for (u32 i = 0; i <= sectors; i++) {
             auto x = d_cos[i];
             auto z = d_sin[i];
@@ -262,9 +251,7 @@ public:
             float u = (x / radius + 1.0f) * 0.25f;
             float v = 1.0f - (z / radius + 1.0f) * 0.25f;
 
-            mesh._vertices.push_back(
-                {{x, -h, z}, {0.0f, -1.0f, 0.0f}, color, {u, v}}
-            );
+            mesh._vertices.push_back({{x, -h, z}, {0.0f, -1.0f, 0.0f}, color, {u, v}});
         }
 
         // generate wall vertices (same as top/bottom, different normals)
@@ -275,8 +262,7 @@ public:
             glm::vec3 top{x, h, z};
             glm::vec3 bot{x, -h, z};
             glm::vec3 normal = glm::normalize(glm::vec3{x, 0.0f, z});
-            float u =
-                1.0f - static_cast<float>(i) / static_cast<float>(sectors);
+            float u = 1.0f - static_cast<float>(i) / static_cast<float>(sectors);
 
             mesh._vertices.push_back(Vertex{bot, normal, color, {u, 0.5f}});
             mesh._vertices.push_back(Vertex{top, normal, color, {u, 0.0f}});
@@ -335,18 +321,13 @@ public:
             for (u32 j = 0; j <= sectors; j++) {
                 auto phi = static_cast<float>(j) * d_phi;
 
-                auto x = (radius_ring + radius_inner * glm::cos(phi)) *
-                         glm::cos(theta);
+                auto x = (radius_ring + radius_inner * glm::cos(phi)) * glm::cos(theta);
                 auto y = radius_inner * glm::sin(phi);
-                auto z = (radius_ring + radius_inner * glm::cos(phi)) *
-                         glm::sin(theta);
-                auto v = 1.0f -
-                         (static_cast<float>(j) / static_cast<float>(sectors));
+                auto z = (radius_ring + radius_inner * glm::cos(phi)) * glm::sin(theta);
+                auto v = 1.0f - (static_cast<float>(j) / static_cast<float>(sectors));
 
                 glm::vec3 vec{x, y, z};
-                mesh._vertices.push_back(
-                    {vec, glm::normalize(vec), color, {u, v}}
-                );
+                mesh._vertices.push_back({vec, glm::normalize(vec), color, {u, v}});
             }
         }
 
@@ -385,7 +366,7 @@ public:
     friend class Model;
 
 private:
-    template <typename T>
+    template<typename T>
     void create_and_upload_buffer(
         const vk::Queue& queue,
         UploadContext& ctx,
@@ -394,18 +375,16 @@ private:
         AllocatedBuffer& buffer
     ) {
         auto& allocator = VulkanContext::allocator();
-        const auto size =
-            src.size() *
-            sizeof(std::remove_reference<decltype(src)>::type::value_type);
+        const auto size = src.size()
+            * sizeof(std::remove_reference<decltype(src)>::type::value_type);
 
         // stage buffer data for upload
         auto staging_buf = allocator.create_staging_buffer(size);
         allocator.copy_mapped(staging_buf, src.data(), size);
 
         // create gpu-side buffer
-        auto gpu_buf = allocator.create_buffer(
-            size, usage | vk::BufferUsageFlagBits::eTransferDst
-        );
+        auto gpu_buf =
+            allocator.create_buffer(size, usage | vk::BufferUsageFlagBits::eTransferDst);
 
         // upload to gpu buffer
         ctx.copy_staged(queue, staging_buf, gpu_buf, size);

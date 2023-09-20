@@ -1,9 +1,7 @@
 #pragma once
 
-#include <concepts>
-
-#include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 
 #include "hvk/core.hpp"
 
@@ -20,11 +18,10 @@ struct AllocatedImage {
     VmaAllocation allocation{};
 };
 
-template <typename T>
-concept IsAllocation =
-    std::same_as<T, AllocatedBuffer> || std::same_as<T, AllocatedImage>;
+template<typename T>
+concept IsAllocation = std::same_as<T, AllocatedBuffer> || std::same_as<T, AllocatedImage>;
 
-template <typename T>
+template<typename T>
 concept Allocation = requires(T t) {
     { t.allocation } -> std::same_as<VmaAllocation&>;
 } && IsAllocation<T>;
@@ -58,18 +55,15 @@ public:
         VmaMemoryUsage mem_usage = VMA_MEMORY_USAGE_AUTO
     );
 
-    template <Allocation T>
+    template<Allocation T>
     vk::MemoryPropertyFlags get_memory_property_flags(const T& buf) {
         VkMemoryPropertyFlags flags{};
         vmaGetAllocationMemoryProperties(_allocator, buf.allocation, &flags);
-        HVK_ASSERT(
-            flags != 0,
-            "`vmaGetAllocationMemoryProperties` failed to get property flags"
-        );
+        HVK_ASSERT(flags != 0, "`vmaGetAllocationMemoryProperties` failed to get property flags");
         return vk::MemoryPropertyFlags{flags};
     }
 
-    template <Allocation T>
+    template<Allocation T>
     void copy_mapped(T& buf, void* src, usize size) {
         void* dst{};
         VK_CHECK(
@@ -80,15 +74,15 @@ public:
         vmaUnmapMemory(_allocator, buf.allocation);
     };
 
-    template <Allocation T>
+    template<Allocation T>
     void destroy(T&) = delete;
 
-    template <>
+    template<>
     void destroy(AllocatedBuffer& buf) {
         vmaDestroyBuffer(_allocator, buf.buffer, buf.allocation);
     }
 
-    template <>
+    template<>
     void destroy(AllocatedImage& buf) {
         vmaDestroyImage(_allocator, buf.image, buf.allocation);
     }

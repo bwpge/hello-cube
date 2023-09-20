@@ -4,8 +4,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "core.hpp"
-#include "vk_context.hpp"
+#include "hvk/core.hpp"
 
 namespace hvk {
 
