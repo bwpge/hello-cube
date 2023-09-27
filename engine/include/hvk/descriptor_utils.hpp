@@ -71,7 +71,17 @@ public:
     DescriptorSetWriter& write_buffers(
         const vk::DescriptorSet& set,
         const DescriptorSetBindingMap& binding_map,
+        vk::DescriptorBufferInfo buffer_infos
+    );
+    DescriptorSetWriter& write_buffers(
+        const vk::DescriptorSet& set,
+        const DescriptorSetBindingMap& binding_map,
         std::vector<vk::DescriptorBufferInfo> buffer_infos
+    );
+    DescriptorSetWriter& write_images(
+        const vk::DescriptorSet& set,
+        const DescriptorSetBindingMap& binding_map,
+        vk::DescriptorImageInfo image_infos
     );
     DescriptorSetWriter& write_images(
         const vk::DescriptorSet& set,

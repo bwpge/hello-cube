@@ -1,29 +1,20 @@
 #pragma once
 
-#include <algorithm>
-#include <limits>
-#include <set>
-#include <stdexcept>
 #include <string_view>
 #include <vector>
 
-#include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
+#include <vulkan/vulkan.hpp>
 
-#include "hvk/allocator.hpp"
 #include "hvk/buffer.hpp"
 #include "hvk/camera.hpp"
 #include "hvk/core.hpp"
-#include "hvk/descriptor_utils.hpp"
 #include "hvk/depth_buffer.hpp"
-#include "hvk/model.hpp"
+#include "hvk/descriptor_utils.hpp"
 #include "hvk/pipeline_builder.hpp"
-#include "hvk/resource_manager.hpp"
 #include "hvk/scene.hpp"
-#include "hvk/shader.hpp"
-#include "hvk/texture.hpp"
 #include "hvk/timer.hpp"
-#include "hvk/vk_context.hpp"
+#include "hvk/ui.hpp"
 
 struct GLFWwindow;
 struct GLFWmonitor;
@@ -49,7 +40,6 @@ struct FrameData {
     vk::UniqueCommandPool cmd_pool{};
     vk::UniqueCommandBuffer cmd{};
     Buffer camera_ubo{};
-    Buffer object_ssbo{};
     vk::DescriptorSet descriptor{};
     // NOTE: this descriptor set is freed by the owning pool, and since we are
     //   not using VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, we don't
@@ -96,6 +86,7 @@ public:
 
     void cycle_pipeline();
     void toggle_fullscreen();
+    void toggle_mouse_capture();
     void on_resize();
     void on_window_resize(i32 width, i32 height);
     void on_window_move(i32 x, i32 y);
@@ -117,14 +108,17 @@ private:
     void create_sync_obj();
     void recreate_swapchain();
     void destroy_swapchain();
+    void update_ui();
 
     bool _is_init{};
     bool _focused{};
     bool _resized{};
+    bool _mouse_captured{};
     usize _frame_count{};
     usize _frame_idx{};
     usize _max_frames_in_flight{2};
     WindowData _window{};
+    UI _ui{};
     Timer _timer{};
     Camera _camera{};
     glm::dvec2 _cursor{};

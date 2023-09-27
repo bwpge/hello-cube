@@ -10,7 +10,8 @@ struct PipelineBuilderState {
           viewport_states(count),
           shader_stages(count),
           rasterizers(count),
-          color_blend_states(count) {}
+          color_blend_states(count),
+          dynamic_states(count) {}
 
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     std::vector<vk::GraphicsPipelineCreateInfo> pipeline_infos{};
@@ -19,6 +20,7 @@ struct PipelineBuilderState {
     std::vector<std::vector<vk::PipelineShaderStageCreateInfo>> shader_stages{};
     std::vector<vk::PipelineRasterizationStateCreateInfo> rasterizers{};
     std::vector<vk::PipelineColorBlendStateCreateInfo> color_blend_states{};
+    std::vector<vk::PipelineDynamicStateCreateInfo> dynamic_states{};
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 };
 
@@ -150,7 +152,7 @@ PipelineBuilder& PipelineBuilder::with_input_assembly_state(
     return *this;
 }
 
-PipelineBuilder& PipelineBuilder::with_default_viewport(const vk::Extent2D& extent) {
+PipelineBuilder& PipelineBuilder::with_flipped_viewport(const vk::Extent2D& extent) {
     auto& config = current_config();
     config.viewports = {vk::Viewport{
         0.0f,
@@ -161,6 +163,25 @@ PipelineBuilder& PipelineBuilder::with_default_viewport(const vk::Extent2D& exte
         1.0f,
     }};
     config.scissors = {vk::Rect2D{{0, 0}, extent}};
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::with_viewport(const vk::Extent2D& extent) {
+    auto& config = current_config();
+    config.viewports = {vk::Viewport{
+        0.0f,
+        0.0f,
+        static_cast<float>(extent.width),
+        static_cast<float>(extent.height),
+        0.0f,
+        1.0f,
+    }};
+    config.scissors = {vk::Rect2D{{0, 0}, extent}};
+    return *this;
+}
+
+PipelineBuilder& PipelineBuilder::add_dynamic_state(vk::DynamicState state) {
+    current_config().dynamic_states.push_back(state);
     return *this;
 }
 
@@ -223,6 +244,9 @@ GraphicsPipeline PipelineBuilder::build(const vk::RenderPass& render_pass) {
         state.viewport_states[i].setViewports(config.viewports).setScissors(config.scissors);
         state.shader_stages[i] = build_shader_stage_info(_config[i]);
         state.color_blend_states[i].setAttachments(config.color_blend_attachments);
+        if (!config.dynamic_states.empty()) {
+            state.dynamic_states[i].setDynamicStates(config.dynamic_states);
+        }
 
         state.pipeline_infos[i]
             .setStages(state.shader_stages[i])
@@ -233,6 +257,7 @@ GraphicsPipeline PipelineBuilder::build(const vk::RenderPass& render_pass) {
             .setPMultisampleState(&config.multisample_state)
             .setPColorBlendState(&state.color_blend_states[i])
             .setPDepthStencilState(&config.depth_stencil)
+            .setPDynamicState(&state.dynamic_states[i])
             .setLayout(layout.get())
             .setRenderPass(render_pass);
     }

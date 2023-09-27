@@ -47,6 +47,8 @@ AllocatedBuffer Allocator::create_buffer(
     VmaMemoryUsage mem_usage,
     VmaAllocationInfo* allocation_info
 ) {
+    HVK_ASSERT(size > 0, "Cannot allocate a zero-size buffer");
+
     vk::BufferCreateInfo buf_info{};
     buf_info.setSize(size).setUsage(buf_usage);
     auto vk_buf_info = static_cast<VkBufferCreateInfo>(buf_info);

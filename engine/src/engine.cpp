@@ -2,6 +2,11 @@
 #include "hvk/engine.hpp"
 #include <GLFW/glfw3.h>
 
+#include "hvk/model.hpp"
+#include "hvk/resource_manager.hpp"
+#include "hvk/shader.hpp"
+#include "hvk/texture.hpp"
+#include "hvk/vk_context.hpp"
 #include "logger.hpp"
 
 namespace hvk {
@@ -39,8 +44,7 @@ void window_focus_callback(GLFWwindow* window, i32 focused) {
 
 void key_callback(GLFWwindow* window, i32 key, i32, i32 action, i32 mods) {
     if (action == GLFW_PRESS) {
-        auto* engine =
-            reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
+        auto* engine = reinterpret_cast<Engine*>(glfwGetWindowUserPointer(window));
         engine->on_key_press(key, mods);
     }
 }
@@ -91,6 +95,8 @@ void Engine::update(double dt) {
         return;
     }
 
+    update_ui();
+
     // handle keyboard controls
     auto w = glfwGetKey(_window.handle, GLFW_KEY_W) == GLFW_PRESS;
     auto a = glfwGetKey(_window.handle, GLFW_KEY_A) == GLFW_PRESS;
@@ -124,7 +130,7 @@ void Engine::update(double dt) {
         _camera.translate(CameraDirection::Up, dt);
     }
 
-    // handle mouse controls
+    // update mouse state
     glm::dvec2 pos{};
     glfwGetCursorPos(_window.handle, &pos.x, &pos.y);
     if (pos != _cursor) {
@@ -151,16 +157,18 @@ void Engine::render() {
     const auto& present_semaphore = frame.present_semaphore;
     const auto& pipeline = _pipelines.pipelines[_pipeline_idx];
 
-    if (device.waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) !=
-        vk::Result::eSuccess) {
-        PANIC("Failed to wait for render fence");
+    if (device.waitForFences(render_fence.get(), VK_TRUE, SYNC_TIMEOUT) != vk::Result::eSuccess) {
+        panic("Failed to wait for render fence");
     }
 
     auto next = device.acquireNextImageKHR(
-        swapchain.handle.get(), SYNC_TIMEOUT, present_semaphore.get(), nullptr
+        swapchain.handle.get(),
+        SYNC_TIMEOUT,
+        present_semaphore.get(),
+        nullptr
     );
-    if (_resized || next.result == vk::Result::eErrorOutOfDateKHR ||
-        next.result == vk::Result::eSuboptimalKHR) {
+    if (_resized || next.result == vk::Result::eErrorOutOfDateKHR
+        || next.result == vk::Result::eSuboptimalKHR) {
         spdlog::debug("Window resized, re-creating swapchain");
         recreate_swapchain();
         return;
@@ -171,8 +179,7 @@ void Engine::render() {
     device.resetFences(render_fence.get());
 
     cmd->reset();
-    cmd->begin(vk::CommandBufferBeginInfo{
-        vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    cmd->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     vk::ClearValue color_clear{vk::ClearColorValue{0.1f, 0.1f, 0.1f, 1.0f}};
     vk::ClearValue depth_clear{vk::ClearDepthStencilValue{1.0f}};
@@ -236,11 +243,12 @@ void Engine::render() {
         }
     }
 
+    _ui.draw(cmd);
+
     cmd->endRenderPass();
     cmd->end();
 
-    vk::PipelineStageFlags mask =
-        vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    vk::PipelineStageFlags mask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
     vk::SubmitInfo submit{
         present_semaphore.get(),
         mask,
@@ -249,11 +257,8 @@ void Engine::render() {
     };
     graphics_queue.submit(submit, render_fence.get());
 
-    vk::PresentInfoKHR present{
-        render_semaphore.get(), swapchain.handle.get(), idx};
-    VKHPP_CHECK(
-        graphics_queue.presentKHR(present), "Failed to present swapchain frame"
-    );
+    vk::PresentInfoKHR present{render_semaphore.get(), swapchain.handle.get(), idx};
+    VKHPP_CHECK(graphics_queue.presentKHR(present), "Failed to present swapchain frame");
 
     _frame_count++;
     _frame_idx = _frame_count % _max_frames_in_flight;
@@ -309,6 +314,21 @@ void Engine::toggle_fullscreen() {
     );
 }
 
+void Engine::toggle_mouse_capture() {
+    if (_mouse_captured) {
+        glfwSetInputMode(_window.handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        if (glfwRawMouseMotionSupported()) {
+            glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+        }
+    } else {
+        glfwSetInputMode(_window.handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        if (glfwRawMouseMotionSupported()) {
+            glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        }
+    }
+    _mouse_captured = !_mouse_captured;
+}
+
 void Engine::on_resize() {
     _resized = true;
 }
@@ -331,8 +351,12 @@ void Engine::on_window_move(i32 x, i32 y) {
     _window.start_y = y;
 }
 
-void Engine::on_scroll(double, double dy) {
+void Engine::on_scroll(double dx, double dy) {
     if (!_is_init || !_focused) {
+        return;
+    }
+    if (!_mouse_captured) {
+        _ui.on_scroll(dx, dy);
         return;
     }
     if (dy == 0.0) {
@@ -348,14 +372,16 @@ void Engine::on_key_press(i32 keycode, i32 mods) {
         return;
     }
 
-    if ((mods & GLFW_MOD_ALT && keycode == GLFW_KEY_ENTER) ||
-        keycode == GLFW_KEY_F11) {
+    if ((mods & GLFW_MOD_ALT && keycode == GLFW_KEY_ENTER) || keycode == GLFW_KEY_F11) {
         toggle_fullscreen();
     }
 
     switch (keycode) {
         case GLFW_KEY_ESCAPE:
             glfwSetWindowShouldClose(_window.handle, GLFW_TRUE);
+            break;
+        case GLFW_KEY_GRAVE_ACCENT:
+            toggle_mouse_capture();
             break;
         case GLFW_KEY_C:
             cycle_pipeline();
@@ -380,6 +406,11 @@ void Engine::on_mouse_move(glm::dvec2 pos) {
     auto dx = pos.x - _cursor.x;
     auto dy = pos.y - _cursor.y;
     _cursor = pos;
+
+    if (!_mouse_captured) {
+        _ui.on_mouse_move(static_cast<glm::vec2>(pos));
+        return;
+    }
     _camera.rotate(dx, dy);
 }
 
@@ -394,11 +425,10 @@ void Engine::init_glfw() {
         _window.height
     );
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    _window.handle = glfwCreateWindow(
-        _window.width, _window.height, _window.title.c_str(), nullptr, nullptr
-    );
+    _window.handle =
+        glfwCreateWindow(_window.width, _window.height, _window.title.c_str(), nullptr, nullptr);
     if (!_window.handle) {
-        PANIC("Failed to create window");
+        panic("Failed to create window");
     }
 
     // capture initial state for fullscreen toggling
@@ -413,10 +443,6 @@ void Engine::init_glfw() {
     glfwGetWindowPos(_window.handle, &_window.start_x, &_window.start_y);
 
     // set window properties callbacks
-    glfwSetInputMode(_window.handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    if (glfwRawMouseMotionSupported()) {
-        glfwSetInputMode(_window.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-    }
     glfwSetWindowSizeCallback(_window.handle, window_size_callback);
     glfwSetWindowPosCallback(_window.handle, window_pos_callback);
     glfwSetWindowFocusCallback(_window.handle, window_focus_callback);
@@ -454,6 +480,8 @@ void Engine::init_vulkan() {
         {"../shaders/wireframe.frag.spv", ShaderType::Fragment},
         {"../shaders/textured_lit.vert.spv", ShaderType::Vertex},
         {"../shaders/textured_lit.frag.spv", ShaderType::Fragment},
+        {"../shaders/ui.vert.spv", ShaderType::Vertex},
+        {"../shaders/ui.frag.spv", ShaderType::Fragment},
     };
     for (const auto& [path, type] : shaders) {
         ResourceManager::load_shader(path, type);
@@ -467,18 +495,21 @@ void Engine::init_vulkan() {
     init_descriptors();
     create_pipelines();
 
+    // setup ImGui
+    _ui = UI{_render_pass};
+    update_ui();
+
     create_scene();
 }
 
 void Engine::create_buffers() {
     for (auto& frame : _frames) {
-        frame.camera_ubo = Buffer{sizeof(CameraData)};
-        frame.object_ssbo = Buffer{};
+        frame.camera_ubo = Buffer{sizeof(CameraData), vk::BufferUsageFlagBits::eUniformBuffer};
     }
 
     auto ubo_alignment = Buffer::pad_alignment(sizeof(SceneData));
     auto size = ubo_alignment * _max_frames_in_flight;
-    _scene_ubo = Buffer{sizeof(SceneData), size};
+    _scene_ubo = Buffer{sizeof(SceneData), size, vk::BufferUsageFlagBits::eUniformBuffer};
     for (u32 i = 0; i < _max_frames_in_flight; i++) {
         auto data = _scene.data();
         _scene_ubo.update_indexed(&data, i);
@@ -487,18 +518,16 @@ void Engine::create_buffers() {
 
 void Engine::create_scene() {
     {
-        ResourceManager::load_image("../assets/uv-test.png", _upload_ctx);
-        const auto* tex = ResourceManager::texture(
-            {"uv-test", vk::Filter::eLinear, vk::SamplerAddressMode::eRepeat}
+        const auto* tex = ResourceManager::create_texture(
+            {"uv-test", vk::Filter::eLinear, vk::SamplerAddressMode::eRepeat},
+            "../assets/uv-test.png"
         );
 
         DescriptorSetWriter writer{};
-        writer.write_images(
-            _texture_set, _texture_bindings, {tex->create_image_info()}
-        );
+        writer.write_images(_texture_set, _texture_bindings, {tex->descriptor_info()});
     }
     {
-        auto model = Model::load_obj("../assets/sponza.obj", _upload_ctx);
+        auto model = Model::load_obj("../assets/sponza.obj");
         model.set_translation({0.0f, -2.0f, 0.0f});
         model.set_rotation({0.0f, glm::radians(90.0f), 0.0f});
         model.set_scale(0.02f);
@@ -534,12 +563,10 @@ void Engine::create_scene() {
         }
     }
 
-    ResourceManager::prepare_materials(
-        _desc_pool, _texture_set_layout, _texture_bindings
-    );
+    ResourceManager::prepare_materials(_desc_pool, _texture_set_layout, _texture_bindings);
 
     for (auto& model : _scene.models()) {
-        model.upload(VulkanContext::graphics_queue(), _upload_ctx);
+        model.upload(VulkanContext::transfer_queue(), _upload_ctx);
     }
 }
 
@@ -561,7 +588,7 @@ void Engine::init_commands() {
             .setLevel(vk::CommandBufferLevel::ePrimary);
         auto buffers = device.allocateCommandBuffersUnique(cbai);
         if (buffers.empty()) {
-            PANIC("Failed to create command buffer");
+            panic("Failed to create command buffer");
         }
         frame.cmd = std::move(buffers[0]);
     }
@@ -581,8 +608,7 @@ void Engine::init_renderpass() {
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::ePresentSrcKHR,
     };
-    vk::AttachmentReference color_attach_ref{
-        0, vk::ImageLayout::eAttachmentOptimal};
+    vk::AttachmentReference color_attach_ref{0, vk::ImageLayout::eAttachmentOptimal};
 
     vk::AttachmentDescription depth_attach{
         {},
@@ -617,23 +643,20 @@ void Engine::init_renderpass() {
     depth_dep.setSrcSubpass(VK_SUBPASS_EXTERNAL)
         .setDstSubpass(0)
         .setSrcStageMask(
-            vk::PipelineStageFlagBits::eEarlyFragmentTests |
-            vk::PipelineStageFlagBits::eLateFragmentTests
+            vk::PipelineStageFlagBits::eEarlyFragmentTests
+            | vk::PipelineStageFlagBits::eLateFragmentTests
         )
         .setSrcAccessMask(vk::AccessFlagBits::eNone)
         .setDstStageMask(
-            vk::PipelineStageFlagBits::eEarlyFragmentTests |
-            vk::PipelineStageFlagBits::eLateFragmentTests
+            vk::PipelineStageFlagBits::eEarlyFragmentTests
+            | vk::PipelineStageFlagBits::eLateFragmentTests
         )
         .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite);
 
     std::vector<vk::SubpassDependency> dependencies{color_dep, depth_dep};
-    std::vector<vk::AttachmentDescription> attachments{
-        color_attach, depth_attach};
+    std::vector<vk::AttachmentDescription> attachments{color_attach, depth_attach};
     vk::RenderPassCreateInfo rpci{};
-    rpci.setAttachments(attachments)
-        .setSubpasses(subpass)
-        .setDependencies(dependencies);
+    rpci.setAttachments(attachments).setSubpasses(subpass).setDependencies(dependencies);
 
     _render_pass = VulkanContext::device().createRenderPassUnique(rpci);
 }
@@ -650,8 +673,7 @@ void Engine::create_framebuffers() {
     spdlog::trace("Creating framebuffers");
     _framebuffers.clear();
     for (const auto& iv : swapchain.image_views) {
-        auto attachments =
-            std::vector<vk::ImageView>{iv.get(), _depth_buffer.image_view()};
+        auto attachments = std::vector<vk::ImageView>{iv.get(), _depth_buffer.image_view()};
 
         vk::FramebufferCreateInfo info{};
         info.setRenderPass(_render_pass.get())
@@ -683,20 +705,17 @@ void Engine::init_descriptors() {
          vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment},
     };
     _texture_bindings = DescriptorSetBindingMap{
-        {vk::DescriptorType::eCombinedImageSampler,
-         vk::ShaderStageFlagBits::eFragment},
+        {vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment},
     };
 
     _global_desc_set_layout = _frame_bindings.build_layout();
     _texture_set_layout = _texture_bindings.build_layout();
-    _texture_set =
-        VulkanContext::allocate_descriptor_set(_desc_pool, _texture_set_layout);
+    _texture_set = VulkanContext::allocate_descriptor_set(_desc_pool, _texture_set_layout);
 
     for (auto& frame : _frames) {
         // allocate the descriptor sets
-        frame.descriptor = VulkanContext::allocate_descriptor_set(
-            _desc_pool, _global_desc_set_layout
-        );
+        frame.descriptor =
+            VulkanContext::allocate_descriptor_set(_desc_pool, _global_desc_set_layout);
 
         // write the appropriate descriptors
         DescriptorSetWriter writer{};
@@ -716,8 +735,9 @@ void Engine::create_sync_obj() {
     const auto& device = VulkanContext::device();
 
     for (auto& frame : _frames) {
-        frame.render_fence = device.createFenceUnique(vk::FenceCreateInfo{
-            vk::FenceCreateFlagBits::eSignaled});
+        frame.render_fence = device.createFenceUnique(
+            vk::FenceCreateInfo{vk::FenceCreateFlagBits::eSignaled}
+        );
         frame.present_semaphore = device.createSemaphoreUnique({});
         frame.render_semaphore = device.createSemaphoreUnique({});
     }
@@ -741,12 +761,11 @@ void Engine::create_pipelines() {
             // textured pipeline
             .new_pipeline()
             .add_vertex_shader(ResourceManager::vertex_shader("textured_lit"))
-            .add_fragment_shader(ResourceManager::fragment_shader("textured_lit"
-            ))
+            .add_fragment_shader(ResourceManager::fragment_shader("textured_lit"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
             .with_default_color_blend_transparency()
-            .with_default_viewport(swapchain.extent)
+            .with_flipped_viewport(swapchain.extent)
             .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             // debug pipeline
             .new_pipeline()
@@ -754,7 +773,7 @@ void Engine::create_pipelines() {
             .add_fragment_shader(ResourceManager::fragment_shader("mesh"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
-            .with_default_viewport(swapchain.extent)
+            .with_flipped_viewport(swapchain.extent)
             .with_depth_stencil(true, true, vk::CompareOp::eLessOrEqual)
             // wireframe pipeline
             .new_pipeline()
@@ -762,7 +781,7 @@ void Engine::create_pipelines() {
             .add_fragment_shader(ResourceManager::fragment_shader("wireframe"))
             .add_vertex_binding_description(Vertex::binding_desc())
             .add_vertex_attr_description(Vertex::attr_desc())
-            .with_default_viewport(swapchain.extent)
+            .with_flipped_viewport(swapchain.extent)
             .with_polygon_mode(vk::PolygonMode::eLine)
             .with_cull_mode(vk::CullModeFlagBits::eNone)
             // build all pipelines with this layout
@@ -801,7 +820,24 @@ void Engine::recreate_swapchain() {
     create_sync_obj();
     create_pipelines();
 
+    _ui.on_resize();
     _camera.set_aspect(VulkanContext::aspect());
+}
+
+void Engine::update_ui() {
+    const auto& swapchain = VulkanContext::swapchain();
+    glm::vec2 display{
+        static_cast<float>(swapchain.extent.width),
+        static_cast<float>(swapchain.extent.height)
+    };
+    std::array<bool, 3> button_down = {
+        glfwGetMouseButton(_window.handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
+        glfwGetMouseButton(_window.handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS,
+        glfwGetMouseButton(_window.handle, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS
+    };
+
+    MouseData mouse_data{_mouse_captured, button_down};
+    _ui.update(display, mouse_data);
 }
 
 }  // namespace hvk

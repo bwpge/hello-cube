@@ -29,6 +29,7 @@ struct PipelineConfig {
     std::vector<vk::PipelineColorBlendAttachmentState> color_blend_attachments{};
     vk::PipelineRasterizationStateCreateInfo rasterizer_info{};
     vk::PipelineDepthStencilStateCreateInfo depth_stencil{};
+    std::vector<vk::DynamicState> dynamic_states{};
 };
 
 class PipelineBuilder {
@@ -51,7 +52,9 @@ public:
     );
     PipelineBuilder& with_input_assembly_state(const vk::PipelineInputAssemblyStateCreateInfo& info
     );
-    PipelineBuilder& with_default_viewport(const vk::Extent2D& extent);
+    PipelineBuilder& with_flipped_viewport(const vk::Extent2D& extent);
+    PipelineBuilder& with_viewport(const vk::Extent2D& extent);
+    PipelineBuilder& add_dynamic_state(vk::DynamicState state);
     PipelineBuilder& with_multisample_state(const vk::PipelineMultisampleStateCreateInfo& info);
     PipelineBuilder& with_default_color_blend_opaque();
     PipelineBuilder& with_default_color_blend_transparency();

@@ -13,11 +13,11 @@ struct Material {
     float roughness_factor{1.0f};
     glm::vec4 base_color_factor{1.0f};
     glm::vec4 emissive_factor{1.0f};
-    Texture* base_color_texture{};
-    Texture* metallic_roughness_texture{};
-    Texture* normal_texture{};
-    Texture* occlusion_texture{};
-    Texture* emissive_texture{};
+    Texture2D* base_color_texture{};
+    Texture2D* metallic_roughness_texture{};
+    Texture2D* normal_texture{};
+    Texture2D* occlusion_texture{};
+    Texture2D* emissive_texture{};
     bool double_sided{false};
 
     struct TexCoordSets {

@@ -94,6 +94,15 @@ DescriptorSetWriter& DescriptorSetWriter::add_image_write(
 DescriptorSetWriter& DescriptorSetWriter::write_buffers(
     const vk::DescriptorSet& set,
     const DescriptorSetBindingMap& binding_map,
+    vk::DescriptorBufferInfo buffer_infos
+) {
+    auto infos = std::vector<vk::DescriptorBufferInfo>{buffer_infos};
+    return write_buffers(set, binding_map, infos);
+}
+
+DescriptorSetWriter& DescriptorSetWriter::write_buffers(
+    const vk::DescriptorSet& set,
+    const DescriptorSetBindingMap& binding_map,
     std::vector<vk::DescriptorBufferInfo> buffer_infos
 ) {
     HVK_ASSERT(
@@ -106,6 +115,15 @@ DescriptorSetWriter& DescriptorSetWriter::write_buffers(
 
     this->update();
     return *this;
+}
+
+DescriptorSetWriter& DescriptorSetWriter::write_images(
+    const vk::DescriptorSet& set,
+    const DescriptorSetBindingMap& binding_map,
+    vk::DescriptorImageInfo image_infos
+) {
+    auto infos = std::vector<vk::DescriptorImageInfo>{image_infos};
+    return write_images(set, binding_map, infos);
 }
 
 DescriptorSetWriter& DescriptorSetWriter::write_images(

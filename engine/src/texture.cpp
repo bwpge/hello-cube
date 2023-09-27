@@ -1,47 +1,23 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "hvk/texture.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
-ImageResource::ImageResource(
-    const std::filesystem::path& path,
-    UploadContext& ctx
-) {
-    spdlog::trace("Loading image: '{}'", path.string());
+vk::DescriptorImageInfo TextureBase::descriptor_info(vk::ImageLayout layout) const {
+    return {
+        _sampler.get(),
+        _view.get(),
+        layout,
+    };
+}
 
-    i32 width{};
-    i32 height{};
-    i32 channels{};
+const vk::Sampler& TextureBase::sampler() const {
+    return _sampler.get();
+}
 
-    auto* pixels = stbi_load(
-        path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha
-    );
-    HVK_ASSERT(
-        pixels, fmt::format("Failed to load texture '{}'", path.string())
-    );
-    HVK_ASSERT(
-        width && height && channels,
-        fmt::format(
-            "STB returned invalid image dimensions: width={}, height={}, "
-            "channels={}",
-            width,
-            height,
-            channels
-        )
-    );
-    usize size = static_cast<usize>(width) * static_cast<usize>(height) * 4;
-
-    // check if texture has varying alpha
-    for (usize i = 3; i < size; i += 4) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        if (pixels[i] != 255) {
-            _has_alpha = true;
-            break;
-        }
-    }
-
-    upload(pixels, width, height, 4, ctx);
-    stbi_image_free(pixels);
+const vk::ImageView& TextureBase::image_view() const {
+    return _view.get();
 }
 
 ImageResource::ImageResource(ImageResource&& other) noexcept {
@@ -70,12 +46,12 @@ ImageResource::~ImageResource() {
 
 vk::UniqueImageView ImageResource::create_image_view(
     vk::Format format,
-    vk::ImageAspectFlags aspect_mask
+    vk::ImageAspectFlags aspect_mask  //
 ) const {
     vk::ImageViewCreateInfo create_info{};
-    create_info.setImage(_image.image)
-        .setViewType(vk::ImageViewType::e2D)
-        .setFormat(format);
+    create_info.setImage(_image.image).setViewType(vk::ImageViewType::e2D).setFormat(format);
+
+    // TODO(bwpge): fix level count for mip chain
     create_info.subresourceRange.setBaseMipLevel(0)
         .setLevelCount(1)
         .setBaseArrayLayer(0)
@@ -85,42 +61,34 @@ vk::UniqueImageView ImageResource::create_image_view(
     return VulkanContext::device().createImageViewUnique(create_info);
 }
 
-bool ImageResource::has_alpha() const {
-    return _has_alpha;
-}
-
 void ImageResource::upload(
     void* data,
-    i32 width,
-    i32 height,
-    i32 channels,
-    UploadContext& ctx
-) {
-    HVK_ASSERT(
-        channels == 4, "ImageResource only supports 4 channels (RGBA format)"
-    );
+    usize size,
+    u32 width,
+    u32 height,
+    vk::Format format,
+    vk::ImageLayout layout,
+    vk::ImageUsageFlags usage
+)  //
+{
     auto& allocator = VulkanContext::allocator();
-    auto size =
-        static_cast<usize>(width) * static_cast<usize>(height) * channels;
 
     // copy image data to buffer
     auto staging_buf = allocator.create_staging_buffer(size);
     allocator.copy_mapped(staging_buf, data, size);
 
-    vk::Format format = vk::Format::eR8G8B8A8Srgb;
     vk::Extent3D extent{
         static_cast<u32>(width),
         static_cast<u32>(height),
         1,
     };
+
+    // TODO(bwpge): fix level count for mip chain
     vk::ImageCreateInfo create_info{};
     create_info.setImageType(vk::ImageType::e2D)
         .setExtent(extent)
         .setFormat(format)
-        .setUsage(
-            vk::ImageUsageFlagBits::eSampled |
-            vk::ImageUsageFlagBits::eTransferDst
-        )
+        .setUsage(usage | vk::ImageUsageFlagBits::eTransferDst)
         .setSamples(vk::SampleCountFlagBits::e1)
         .setMipLevels(1)
         .setArrayLayers(1)
@@ -132,112 +100,72 @@ void ImageResource::upload(
         VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     );
 
-    ctx.oneshot(
-        VulkanContext::graphics_queue(),
-        [=](const vk::UniqueCommandBuffer& cmd) {
-            vk::ImageSubresourceRange range{};
-            range.setAspectMask(vk::ImageAspectFlagBits::eColor)
-                .setLayerCount(1)
-                .setLevelCount(1);
+    auto cmd = VulkanContext::oneshot();
+    vk::ImageSubresourceRange range{};
+    // TODO(bwpge): fix level count for mip chain
+    range.setAspectMask(vk::ImageAspectFlagBits::eColor).setLayerCount(1).setLevelCount(1);
 
-            // transition image to receive data
-            {
-                vk::ImageMemoryBarrier barrier{};
-                barrier.setImage(image.image)
-                    .setSubresourceRange(range)
-                    .setOldLayout(vk::ImageLayout::eUndefined)
-                    .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
-                    .setSrcAccessMask({})
-                    .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
-                cmd->pipelineBarrier(
-                    vk::PipelineStageFlagBits::eTopOfPipe,
-                    vk::PipelineStageFlagBits::eTransfer,
-                    {},
-                    nullptr,
-                    nullptr,
-                    barrier
-                );
-            }
+    // transition image to receive data
+    {
+        vk::ImageMemoryBarrier barrier{};
+        barrier.setImage(image.image)
+            .setSubresourceRange(range)
+            .setOldLayout(vk::ImageLayout::eUndefined)
+            .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+            .setSrcAccessMask({})
+            .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+        cmd->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer,
+            {},
+            nullptr,
+            nullptr,
+            barrier
+        );
+    }
 
-            // copy image data from staging buffer
-            vk::BufferImageCopy copy_region{};
-            copy_region.setBufferOffset(0)
-                .setBufferRowLength(0)
-                .setBufferImageHeight(0)
-                .setImageExtent(extent);
-            copy_region.imageSubresource
-                .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                .setMipLevel(0)
-                .setBaseArrayLayer(0)
-                .setLayerCount(1);
-            cmd->copyBufferToImage(
-                staging_buf.buffer,
-                image.image,
-                vk::ImageLayout::eTransferDstOptimal,
-                copy_region
-            );
-
-            // transition to shader readable image
-            {
-                vk::ImageMemoryBarrier barrier{};
-                barrier.setImage(image.image)
-                    .setSubresourceRange(range)
-                    .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                    .setNewLayout(vk::ImageLayout::eReadOnlyOptimal)
-                    .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
-                cmd->pipelineBarrier(
-                    vk::PipelineStageFlagBits::eTransfer,
-                    vk::PipelineStageFlagBits::eFragmentShader,
-                    {},
-                    nullptr,
-                    nullptr,
-                    barrier
-                );
-            }
-        }
+    // copy image data from staging buffer
+    vk::BufferImageCopy copy_region{};
+    copy_region.setBufferOffset(0).setBufferRowLength(0).setBufferImageHeight(0).setImageExtent(
+        extent
+    );
+    copy_region.imageSubresource.setAspectMask(vk::ImageAspectFlagBits::eColor)
+        .setMipLevel(0)
+        .setBaseArrayLayer(0)
+        .setLayerCount(1);
+    cmd->copyBufferToImage(
+        staging_buf.buffer,
+        image.image,
+        vk::ImageLayout::eTransferDstOptimal,
+        copy_region
     );
 
+    // transition to final layout
+    {
+        vk::ImageMemoryBarrier barrier{};
+        barrier.setImage(image.image)
+            .setSubresourceRange(range)
+            .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+            .setNewLayout(layout)
+            .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+            .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+        cmd->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader,
+            {},
+            nullptr,
+            nullptr,
+            barrier
+        );
+    }
+
+    VulkanContext::flush_command_buffer(cmd, VulkanContext::transfer_queue());
     allocator.destroy(staging_buf);
     std::swap(_image, image);
 }
 
 void ImageResource::destroy() {
     VulkanContext::allocator().destroy(_image);
-}
-
-Texture::Texture(
-    const ImageResource& resource,
-    vk::Filter filter,
-    vk::SamplerAddressMode mode
-)
-    : _has_alpha{resource.has_alpha()},
-      _view{resource.create_image_view()}  //
-{
-    vk::SamplerCreateInfo info{};
-    info.setMagFilter(filter)
-        .setMinFilter(filter)
-        .setAddressModeU(mode)
-        .setAddressModeV(mode)
-        .setAddressModeW(mode);
-    _sampler = VulkanContext::device().createSamplerUnique(info);
-}
-
-const vk::Sampler& Texture::sampler() const {
-    return _sampler.get();
-}
-
-const vk::ImageView& Texture::image_view() const {
-    return _view.get();
-}
-
-vk::DescriptorImageInfo Texture::create_image_info(vk::ImageLayout layout
-) const {
-    vk::DescriptorImageInfo info{};
-    info.setSampler(sampler())
-        .setImageView(image_view())
-        .setImageLayout(layout);
-    return info;
 }
 
 }  // namespace hvk

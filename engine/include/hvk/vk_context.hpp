@@ -22,6 +22,12 @@ struct Swapchain {
     std::vector<vk::UniqueImageView> image_views{};
 };
 
+enum class QueueFamily {
+    Graphics,
+    Present,
+    Transfer,
+};
+
 class VulkanContext final {
 public:
     VulkanContext(const VulkanContext&) = delete;
@@ -41,26 +47,28 @@ public:
         const std::vector<const char*>& extensions = {}
     ) {
         spdlog::trace("Initializing Vulkan context");
-        auto& ctx = instance();
-        if (ctx._is_init) {
+        auto& self = instance();
+        if (self._is_init) {
             panic("Cannot re-initialize Vulkan context");
         }
 
         // store api version for use by allocator
         if (!app_info.apiVersion) {
             spdlog::warn("Vulkan API version not specified, defaulting to 1.0");
-            ctx._api_version = VK_API_VERSION_1_0;
+            self._api_version = VK_API_VERSION_1_0;
         } else {
-            ctx._api_version = app_info.apiVersion;
+            self._api_version = app_info.apiVersion;
         }
 
-        ctx.create_instance(app_info, extensions);
-        ctx.create_surface(window);
-        ctx.create_device();
-        ctx.create_allocator();
-        ctx.build_swapchain(window);
+        self.create_instance(app_info, extensions);
+        self.create_surface(window);
+        self.create_device();
+        self.create_allocator();
+        self.build_swapchain(window);
 
-        ctx._is_init = true;
+        // TODO(bwpge): there should be a oneshot pool for transfer as well
+        self._oneshot_pool = create_command_pool(QueueFamily::Graphics);
+        self._is_init = true;
     }
 
     [[nodiscard]]
@@ -118,6 +126,54 @@ public:
         return instance()._transfer_queue;
     }
 
+    [[nodiscard]]
+    static vk::UniqueCommandPool create_command_pool(
+        QueueFamily queue_family,
+        vk::CommandPoolCreateFlags flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer
+    ) {
+        const auto& self = instance();
+
+        u32 idx{};
+        switch (queue_family) {
+            case QueueFamily::Graphics:
+                idx = self._queue_family.graphics;
+                break;
+            case QueueFamily::Present:
+                idx = self._queue_family.present;
+                break;
+            case QueueFamily::Transfer:
+                idx = self._queue_family.transfer;
+                break;
+            default:
+                panic(fmt::format(
+                    "Unsupported queue family type ({})",
+                    static_cast<i32>(queue_family)
+                ));
+        }
+
+        vk::CommandPoolCreateInfo info{flags, idx};
+        return self._device->createCommandPoolUnique(info);
+    }
+
+    static vk::UniqueCommandBuffer create_command_buffer(
+        const vk::UniqueCommandPool& pool,
+        vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary
+    ) {
+        vk::CommandBufferAllocateInfo alloc_info{};
+        alloc_info.setCommandPool(pool.get()).setLevel(level).setCommandBufferCount(1);
+
+        auto buffers = instance()._device->allocateCommandBuffersUnique(alloc_info);
+        HVK_ASSERT(buffers.size() == 1, "Should have allocated exactly one command buffer");
+
+        return std::move(buffers[0]);
+    }
+
+    static vk::UniqueCommandBuffer oneshot() {
+        auto cmd = create_command_buffer(instance()._oneshot_pool);
+        cmd->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        return cmd;
+    }
+
     static void flush_command_buffer(vk::UniqueCommandBuffer& cmd, const vk::Queue& queue) {
         cmd->end();
 
@@ -147,6 +203,19 @@ public:
         return sets[0];
     }
 
+    static void copy_staged_buffer(
+        const AllocatedBuffer& src,
+        const AllocatedBuffer& dst,
+        vk::DeviceSize size,
+        vk::DeviceSize src_offset = {},
+        vk::DeviceSize dst_offset = {}
+    ) {
+        auto cmd = oneshot();
+        vk::BufferCopy region{src_offset, dst_offset, size};
+        cmd->copyBuffer(src.buffer, dst.buffer, region);
+        flush_command_buffer(cmd, transfer_queue());
+    }
+
     void build_swapchain(GLFWwindow* window);
 
 private:
@@ -170,6 +239,7 @@ private:
     vk::Queue _transfer_queue{};
     Swapchain _swapchain{};
     Allocator _allocator{};
+    vk::UniqueCommandPool _oneshot_pool{};
 };
 
 }  // namespace hvk

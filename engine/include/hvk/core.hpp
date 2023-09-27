@@ -54,7 +54,7 @@ inline constexpr u32 SYNC_TIMEOUT = 1000000000;
 
 template<typename T>
 [[noreturn]]
-constexpr void panic(T&& msg, std::source_location location = {}) {
+constexpr void panic(T&& msg, std::source_location location = std::source_location::current()) {
     spdlog::
         critical("PANIC: {} ({}:{})", std::forward<T>(msg), location.file_name(), location.line());
     abort();

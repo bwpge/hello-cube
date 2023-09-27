@@ -2,12 +2,13 @@
 
 namespace hvk {
 
-Buffer::Buffer(vk::DeviceSize size) : _range{size} {
-    allocate_impl(size);
+Buffer::Buffer(vk::DeviceSize size, vk::BufferUsageFlags usage) : _range{size} {
+    allocate_impl(size, usage);
 }
 
-Buffer::Buffer(vk::DeviceSize range, vk::DeviceSize size) : _range{range} {
-    allocate_impl(size);
+Buffer::Buffer(vk::DeviceSize range, vk::DeviceSize size, vk::BufferUsageFlags usage)
+    : _range{range} {
+    allocate_impl(size, usage);
 }
 
 Buffer::~Buffer() {
@@ -54,7 +55,6 @@ Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
         return *this;
     }
 
-    destroy();
     std::swap(_buf, rhs._buf);
     std::swap(_range, rhs._range);
     std::swap(_data, rhs._data);
@@ -67,13 +67,13 @@ void Buffer::destroy() {
     VulkanContext::allocator().destroy(_buf);
 }
 
-void Buffer::allocate_impl(usize size) {
+void Buffer::allocate_impl(usize size, vk::BufferUsageFlags usage) {
     auto& allocator = VulkanContext::allocator();
 
     VmaAllocationInfo allocation_info{};
     auto buffer = allocator.create_buffer(
         size,
-        vk::BufferUsageFlagBits::eUniformBuffer,
+        usage,
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
             | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
             | VMA_ALLOCATION_CREATE_MAPPED_BIT,

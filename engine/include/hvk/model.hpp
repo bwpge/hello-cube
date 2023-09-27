@@ -65,7 +65,7 @@ public:
         return model;
     }
 
-    static Model load_obj(const std::filesystem::path& path, UploadContext& ctx) {
+    static Model load_obj(const std::filesystem::path& path) {
         spdlog::trace("Loading mesh: {}", path.string());
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
@@ -92,7 +92,7 @@ public:
         }
 
         Model model{};
-        model._materials = load_obj_materials(mtl_base_dir, materials, ctx);
+        model._materials = load_obj_materials(mtl_base_dir, materials);
 
         const usize vert_count = 3;
         Mesh mesh{};
@@ -184,15 +184,14 @@ public:
 private:
     static std::vector<Material*> load_obj_materials(
         const std::filesystem::path& base_dir,
-        const std::vector<tinyobj::material_t>& materials,
-        UploadContext& ctx
+        const std::vector<tinyobj::material_t>& materials
     ) {
         std::vector<Material*> result{};
         for (const auto& mat : materials) {
             glm::vec3 ambient_base = glm::vec3{mat.ambient[0], mat.ambient[1], mat.ambient[2]};
             auto ambient_tex = std::filesystem::path{mat.ambient_texname};
             result.push_back(
-                ResourceManager::make_material(mat.name, base_dir, ambient_base, ambient_tex, ctx)
+                ResourceManager::make_material(mat.name, base_dir, ambient_base, ambient_tex)
             );
         }
 

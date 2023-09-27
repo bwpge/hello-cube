@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ENGINE_HEADER_FILES
     "include/hvk/allocator.hpp"
+    "include/hvk/buffer.hpp"
     "include/hvk/camera.hpp"
     "include/hvk/core.hpp"
     "include/hvk/debug_utils.hpp"
@@ -27,13 +28,14 @@ set(ENGINE_HEADER_FILES
     "include/hvk/texture.hpp"
     "include/hvk/timer.hpp"
     "include/hvk/types.hpp"
-    "include/hvk/buffer.hpp"
+    "include/hvk/ui.hpp"
     "include/hvk/upload_context.hpp"
     "include/hvk/vk_context.hpp"
 )
 
 set(ENGINE_SRC_FILES
     "src/allocator.cpp"
+    "src/buffer.cpp"
     "src/camera.cpp"
     "src/debug_utils.cpp"
     "src/descriptor_utils.cpp"
@@ -41,7 +43,6 @@ set(ENGINE_SRC_FILES
     "src/engine.cpp"
     "src/logger.hpp"
     "src/logger.cpp"
-    "src/material.cpp"
     "src/mesh.cpp"
     "src/model.cpp"
     "src/pipeline_builder.cpp"
@@ -50,7 +51,7 @@ set(ENGINE_SRC_FILES
     "src/shader.cpp"
     "src/texture.cpp"
     "src/timer.cpp"
-    "src/buffer.cpp"
+    "src/ui.cpp"
     "src/upload_context.cpp"
     "src/vk_context.cpp"
 )
@@ -127,6 +128,7 @@ set(packages
     "glfw3"
     "glm"
     "tinyobjloader"
+    "imgui"
 )
 set(packages_no_cfg
     "Stb"
@@ -157,6 +159,8 @@ set(SHADER_SRC_FILES
     "${SHADER_SOURCE_DIR}/wireframe.frag"
     "${SHADER_SOURCE_DIR}/textured_lit.vert"
     "${SHADER_SOURCE_DIR}/textured_lit.frag"
+    "${SHADER_SOURCE_DIR}/ui.vert"
+    "${SHADER_SOURCE_DIR}/ui.frag"
 )
 
 # run glslc for each shader
@@ -215,6 +219,7 @@ target_link_libraries(${PROJECT_NAME}
         glfw
         spdlog::spdlog
         fmt::fmt
+        imgui::imgui
     PRIVATE
         Vulkan::Vulkan
         glm::glm

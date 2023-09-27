@@ -11,6 +11,7 @@
 #include "hvk/material.hpp"
 #include "hvk/shader.hpp"
 #include "hvk/texture.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 
@@ -92,46 +93,39 @@ public:
         return shader(name, ShaderType::Fragment);
     }
 
-    static const ImageResource&
-    load_image(const std::filesystem::path& path, UploadContext& ctx, const Key& name = {}) {
-        auto key = name.empty() ? key_from_filename(path) : name;
-        HVK_ASSERT(!key.empty(), "Image resource name should not be empty");
-
-        auto& map = get()._images;
-        if (map.find(key) != map.end()) {
-            spdlog::trace("Image resource '{}' already exists", key);
-            return *map[key];
-        }
-
-        map[key] = std::make_unique<ImageResource>(path, ctx);
-        spdlog::trace("Created image resource '{}'", key);
-        return *map[key];
-    }
-
-    static Texture* texture(const TextureInfo& info) {
+    static Texture2D* create_texture(
+        const TextureInfo& info,
+        const std::filesystem::path& path,
+        vk::Format format = vk::Format::eR8G8B8A8Srgb,
+        vk::ImageLayout layout = vk::ImageLayout::eReadOnlyOptimal,
+        vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eSampled
+    ) {
         auto& map = get()._textures;
         if (map.find(info) != map.end()) {
             return map[info].get();
         }
 
-        spdlog::trace("Creating texture {}", info);
-        const auto* resource_ptr = get()._images.at(info.name).get();
-        HVK_ASSERT(resource_ptr, fmt::format("Image resource '{}' not found", info.name));
-
-        map[info] = std::make_unique<Texture>(*resource_ptr, info.filter, info.mode);
+        map[info] = std::make_unique<Texture2D>(
+            Texture2D::from_file(path, format, layout, usage, info.filter, info.mode)
+        );
         return map[info].get();
     }
 
-    static Texture* default_texture() {
-        return ResourceManager::texture({});
+    static Texture2D* default_texture() {
+        auto& map = get()._textures;
+        if (map.find({}) != map.end()) {
+            return map[{}].get();
+        }
+
+        map[{}] = std::make_unique<Texture2D>(Texture2D::empty());
+        return map[{}].get();
     }
 
     static Material* make_material(
         const Key& name,
         const std::filesystem::path& base_dir,
         glm::vec3 ambient_base,
-        const std::filesystem::path& ambient_tex,
-        UploadContext& ctx
+        const std::filesystem::path& ambient_tex
     ) {
         auto& map = get()._materials;
         if (map.find(name) != map.end()) {
@@ -146,17 +140,12 @@ public:
         // check if texture is set
         if (!ambient_tex.empty()) {
             auto ambient = base_dir / ambient_tex;
-            ResourceManager::load_image(ambient, ctx);
             TextureInfo tex_info{.name = ambient.stem().string()};
-            material.base_color_texture = ResourceManager::texture(tex_info);
+            material.base_color_texture = ResourceManager::create_texture(tex_info, ambient);
         }
         // if not lazy initialize empty texture and use that
         else {
-            auto& images = get()._images;
-            if (images.find({}) == images.end()) {
-                images[{}] = std::make_unique<ImageResource>(ImageResource::empty(ctx));
-            }
-            material.base_color_texture = ResourceManager::texture({});
+            material.base_color_texture = ResourceManager::default_texture();
         }
 
         map[name] = std::make_unique<Material>(material);
@@ -212,10 +201,10 @@ private:
         for (auto& [_, material] : get()._materials) {
             std::vector<vk::DescriptorImageInfo> info{};
             if (material->base_color_texture) {
-                info.push_back(material->base_color_texture->create_image_info());
+                info.push_back(material->base_color_texture->descriptor_info());
             } else {
                 const auto* tex = ResourceManager::default_texture();
-                info.push_back(tex->create_image_info());
+                info.push_back(tex->descriptor_info());
             }
             writer.write_images(material->descriptor_set, binding_map, info);
         }
@@ -227,8 +216,7 @@ private:
     Map<Key, Unique<Shader>> _frag_shaders{};
     Map<Key, Unique<Shader>> _geom_shaders{};
     Map<Key, Unique<Shader>> _comp_shaders{};
-    Map<Key, Unique<ImageResource>> _images{};
-    Map<TextureInfo, Unique<Texture>> _textures{};
+    Map<TextureInfo, Unique<Texture2D>> _textures{};
     Map<Key, Unique<Material>> _materials{};
 };
 

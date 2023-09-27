@@ -8,6 +8,7 @@
 #include "hvk/allocator.hpp"
 #include "hvk/core.hpp"
 #include "hvk/upload_context.hpp"
+#include "hvk/vk_context.hpp"
 
 namespace hvk {
 

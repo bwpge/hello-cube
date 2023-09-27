@@ -8,8 +8,8 @@ namespace hvk {
 
 class Buffer {
 public:
-    explicit Buffer(vk::DeviceSize size);
-    explicit Buffer(vk::DeviceSize range, vk::DeviceSize size);
+    explicit Buffer(vk::DeviceSize size, vk::BufferUsageFlags usage);
+    explicit Buffer(vk::DeviceSize range, vk::DeviceSize size, vk::BufferUsageFlags usage);
 
     Buffer() = default;
     Buffer(const Buffer&) = delete;
@@ -34,14 +34,15 @@ public:
     bool is_mapped() const;
 
     template<typename T>
-    void update(T* src) {
+    void update(T* src, usize size = sizeof(T), usize dst_offset = 0) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        auto* data = static_cast<void*>(static_cast<u8*>(_data) + dst_offset);
         auto* new_data = static_cast<void*>(src);
-        auto size = sizeof(T);
-        update_impl(_data, new_data, size);
+        update_impl(data, new_data, size);
     }
 
     template<>
-    void update(void*) = delete;
+    void update(void*, usize, usize) = delete;
 
     template<typename T>
     void update_indexed(T* src, usize index) {
@@ -53,7 +54,7 @@ public:
         );
 
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        auto* data = static_cast<void*>(static_cast<char*>(_data) + offset);
+        auto* data = static_cast<void*>(static_cast<u8*>(_data) + offset);
         auto* new_data = static_cast<void*>(src);
         update_impl(data, new_data, size);
     }
@@ -75,7 +76,7 @@ public:
     void destroy();
 
 private:
-    void allocate_impl(usize size);
+    void allocate_impl(usize size, vk::BufferUsageFlags usage);
     void update_impl(void* dst, void* src, usize size) const;
 
     AllocatedBuffer _buf{};
