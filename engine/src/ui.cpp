@@ -19,7 +19,7 @@ UI::UI(const vk::UniqueRenderPass& render_pass) : _render_pass(render_pass.get()
     i32 font_tex_h{};
     usize font_tex_size{};
 
-    io.Fonts->AddFontFromFileTTF("../assets/fonts/Inter-Regular.ttf", 16.0f);
+    io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Regular.ttf", 16.0f);
     io.Fonts->GetTexDataAsRGBA32(&font_data, &font_tex_w, &font_tex_h);
     font_tex_size = static_cast<usize>(font_tex_w) * static_cast<usize>(font_tex_h) * 4
         * sizeof(u8);

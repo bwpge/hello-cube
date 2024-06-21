@@ -73,6 +73,7 @@ void Engine::init() {
     glfwGetCursorPos(_window.handle, &_cursor.x, &_cursor.y);
     _camera = Camera{45.f, VulkanContext::aspect(), 0.1f, 200.f};
     _focused = true;
+    toggle_mouse_capture();
 
     _is_init = true;
 }
@@ -474,14 +475,14 @@ void Engine::init_vulkan() {
 
     // load shaders
     std::vector<std::pair<std::string_view, ShaderType>> shaders{
-        {"../shaders/mesh.vert.spv", ShaderType::Vertex},
-        {"../shaders/mesh.vert.spv", ShaderType::Vertex},
-        {"../shaders/mesh.frag.spv", ShaderType::Fragment},
-        {"../shaders/wireframe.frag.spv", ShaderType::Fragment},
-        {"../shaders/textured_lit.vert.spv", ShaderType::Vertex},
-        {"../shaders/textured_lit.frag.spv", ShaderType::Fragment},
-        {"../shaders/ui.vert.spv", ShaderType::Vertex},
-        {"../shaders/ui.frag.spv", ShaderType::Fragment},
+        {"shaders/mesh.vert.spv", ShaderType::Vertex},
+        {"shaders/mesh.vert.spv", ShaderType::Vertex},
+        {"shaders/mesh.frag.spv", ShaderType::Fragment},
+        {"shaders/wireframe.frag.spv", ShaderType::Fragment},
+        {"shaders/textured_lit.vert.spv", ShaderType::Vertex},
+        {"shaders/textured_lit.frag.spv", ShaderType::Fragment},
+        {"shaders/ui.vert.spv", ShaderType::Vertex},
+        {"shaders/ui.frag.spv", ShaderType::Fragment},
     };
     for (const auto& [path, type] : shaders) {
         ResourceManager::load_shader(path, type);
@@ -520,14 +521,14 @@ void Engine::create_scene() {
     {
         const auto* tex = ResourceManager::create_texture(
             {"uv-test", vk::Filter::eLinear, vk::SamplerAddressMode::eRepeat},
-            "../assets/uv-test.png"
+            "assets/uv-test.png"
         );
 
         DescriptorSetWriter writer{};
         writer.write_images(_texture_set, _texture_bindings, {tex->descriptor_info()});
     }
     {
-        auto model = Model::load_obj("../assets/sponza.obj");
+        auto model = Model::load_obj("assets/sponza.obj");
         model.set_translation({0.0f, -2.0f, 0.0f});
         model.set_rotation({0.0f, glm::radians(90.0f), 0.0f});
         model.set_scale(0.02f);
